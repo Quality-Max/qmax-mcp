@@ -1,0 +1,82 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from 'playwright';
+
+export type Viewport = {
+  width: number;
+  height: number;
+};
+
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+export type Finding = {
+  severity: Severity;
+  category: string;
+  message: string;
+  evidence?: unknown;
+  url?: string;
+  selector?: string;
+  suggestion?: string;
+};
+
+export const DEFAULT_VIEWPORT: Viewport = { width: 1366, height: 900 };
+
+export function validateHttpUrl(url: string): string {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('URL must use http or https');
+  }
+  return parsed.toString();
+}
+
+export function browserType(name = 'chromium'): BrowserType {
+  if (name === 'firefox') return firefox;
+  if (name === 'webkit') return webkit;
+  return chromium;
+}
+
+export async function withPage<T>(
+  options: {
+    url: string;
+    viewport?: Viewport;
+    browser?: 'chromium' | 'firefox' | 'webkit';
+    headed?: boolean;
+  },
+  fn: (page: Page, browser: Browser) => Promise<T>
+): Promise<T> {
+  const browser = await browserType(options.browser).launch({ headless: !options.headed });
+  try {
+    const page = await browser.newPage({ viewport: options.viewport ?? DEFAULT_VIEWPORT });
+    page.setDefaultTimeout(15_000);
+    await page.goto(validateHttpUrl(options.url), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    return await fn(page, browser);
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function writeTempFile(prefix: string, extension: string, content: string): Promise<string> {
+  const dir = path.join(tmpdir(), 'qmax-mcp');
+  await mkdir(dir, { recursive: true });
+  const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 40) || 'artifact';
+  const file = path.join(dir, `${safePrefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`);
+  await writeFile(file, content, 'utf8');
+  return file;
+}
+
+export function scoreFromFindings(findings: Finding[]): number {
+  const weights: Record<Severity, number> = {
+    critical: 35,
+    high: 20,
+    medium: 10,
+    low: 4,
+    info: 0,
+  };
+  const penalty = findings.reduce((sum, finding) => sum + weights[finding.severity], 0);
+  return Math.max(0, Math.min(100, 100 - penalty));
+}
+
+export function cssEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}

@@ -1,22 +1,24 @@
-const MCP_URL = 'https://app.qualitymax.io/api/mcp';
+const PACKAGE_NAME = '@qualitymax/qmax-mcp';
 const SETTINGS_URL = 'https://app.qualitymax.io/settings/api-tokens';
 
 export function printClients(apiKey?: string): void {
   const key = apiKey ?? '<your-api-key>';
 
   console.log(`
-QualityMax MCP — client configs
-Get your API key at ${SETTINGS_URL}
+QualityMax QA MCP — client configs
+
+Local-first mode runs deterministic QA tools on your machine. No QualityMax
+API key is required for scan_url, inspect_page, generate_playwright_repro, or
+run_playwright_test.
 
 ─────────────────────────────────────────────
 Claude Code  (.mcp.json in your project root)
 ─────────────────────────────────────────────
 {
   "mcpServers": {
-    "qualitymax": {
-      "type": "http",
-      "url": "${MCP_URL}",
-      "headers": { "Authorization": "Bearer ${key}" }
+    "qmax": {
+      "command": "npx",
+      "args": ["-y", "${PACKAGE_NAME}"]
     }
   }
 }
@@ -26,10 +28,9 @@ Claude Desktop  (claude_desktop_config.json)
 ─────────────────────────────────────────
 {
   "mcpServers": {
-    "qualitymax": {
+    "qmax": {
       "command": "npx",
-      "args": ["-y", "@qualitymax/mcp"],
-      "env": { "QUALITYMAX_API_KEY": "${key}" }
+      "args": ["-y", "${PACKAGE_NAME}"]
     }
   }
 }
@@ -39,30 +40,31 @@ Cursor  (~/.cursor/mcp.json)
 ─────────────────────────────────────────
 {
   "mcpServers": {
-    "qualitymax": {
+    "qmax": {
       "command": "npx",
-      "args": ["-y", "@qualitymax/mcp"],
-      "env": { "QUALITYMAX_API_KEY": "${key}" }
+      "args": ["-y", "${PACKAGE_NAME}"]
     }
   }
 }
 
 ─────────────────────────────────────────
-Windsurf  (~/.codeium/windsurf/mcp_config.json)
+No MCP client: deterministic URL scan
 ─────────────────────────────────────────
+npx -y ${PACKAGE_NAME} scan https://example.com --screenshot
+
+─────────────────────────────────────────
+Hosted QualityMax proxy mode
+─────────────────────────────────────────
+Get your API key at ${SETTINGS_URL}
+
 {
   "mcpServers": {
-    "qualitymax": {
+    "qualitymax-hosted": {
       "command": "npx",
-      "args": ["-y", "@qualitymax/mcp"],
+      "args": ["-y", "${PACKAGE_NAME}", "proxy"],
       "env": { "QUALITYMAX_API_KEY": "${key}" }
     }
   }
 }
-
-─────────────────────────────────────────
-Docker
-─────────────────────────────────────────
-docker run -i -e QUALITYMAX_API_KEY=${key} qualitymax/mcp
 `);
 }

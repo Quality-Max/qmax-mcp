@@ -1,8 +1,8 @@
-name: qualitymax
-displayName: QualityMax
+name: qmax
+displayName: QualityMax QA MCP
 description: >
-  AI-native test automation — crawl, generate, run, and heal Playwright tests via MCP.
-  Connects to your QualityMax workspace to manage projects, test cases, executions, and AI crawls.
+  Local-first QA MCP server: scan URLs, inspect pages, generate Playwright repros,
+  and run tests locally.
 version: 0.1.0
 homepage: https://qualitymax.io
 logo: https://app.qualitymax.io/static/img/logo.png
@@ -11,15 +11,9 @@ startCommand:
   type: stdio
   configSchema:
     type: object
-    properties:
-      apiKey:
-        type: string
-        description: QualityMax API key — get one at https://app.qualitymax.io/settings/api-tokens
-    required:
-      - apiKey
+    properties: {}
   commandFunction: |
-    (config) => ({
+    () => ({
       command: "npx",
-      args: ["-y", "@qualitymax/mcp"],
-      env: { QUALITYMAX_API_KEY: config.apiKey }
+      args: ["-y", "@qualitymax/qmax-mcp"]
     })

@@ -1,9 +1,10 @@
 {
-  "name": "@qualitymax/mcp",
+  "name": "@qualitymax/qmax-mcp",
   "version": "0.1.0",
-  "description": "QualityMax MCP server — AI-native test automation via Model Context Protocol",
+  "description": "QualityMax local QA MCP server — scan, inspect, generate Playwright repros, and run tests",
   "bin": {
-    "qmax-mcp": "dist/index.js"
+    "qmax-mcp": "dist/index.js",
+    "qmax": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -12,7 +13,11 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "commander": "^12.0.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@playwright/test": "^1.61.0",
+    "commander": "^12.0.0",
+    "playwright": "^1.61.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
