@@ -51,6 +51,30 @@ Runs one local Playwright test file or inline test and returns structured status
 npx -y @qualitymax/qmax-mcp scan https://example.com --screenshot
 ```
 
+The CLI prints a **graded, shareable Markdown report** by default — a letter grade, a per-category summary, and every finding with a copy-paste reproduction step (a `curl` one-liner or DevTools steps) and a fix:
+
+```markdown
+# QA Scan — example.com
+**Grade: 🟡 C  (68 / 100)**   ·   5 issues found   ·   scanned 2026-06-19
+
+| Category         | Issues | Worst     |
+|------------------|:------:|:---------:|
+| SEO              |   1    | 🟡 low    |
+| Security headers |   4    | 🟠 medium |
+
+## 🟠 medium · Missing content-security-policy header.
+**Reproduce:**
+    curl -sI https://example.com/ | grep -i content-security-policy
+**Fix:** Add a Content-Security-Policy to reduce script injection risk.
+```
+
+Flags:
+
+- `--format markdown|json` — `markdown` (default) for the shareable report, `json` for the structured result.
+- `--out report.md` — write the report to a file.
+
+The `scan_url` MCP tool returns JSON by default (for agents); pass `format: "markdown"` to get the same shareable report.
+
 ## Client Configs
 
 Print copy-paste configs:

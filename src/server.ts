@@ -5,6 +5,7 @@ import { generatePlaywrightRepro } from './tools/generate-playwright-repro';
 import { inspectPage } from './tools/inspect-page';
 import { runPlaywrightTest } from './tools/run-playwright-test';
 import { scanUrl } from './tools/scan-url';
+import { renderReport } from './report';
 
 function jsonResult(value: unknown) {
   return {
@@ -12,6 +13,17 @@ function jsonResult(value: unknown) {
       {
         type: 'text' as const,
         text: JSON.stringify(value, null, 2),
+      },
+    ],
+  };
+}
+
+function textResult(text: string) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text,
       },
     ],
   };
@@ -28,12 +40,13 @@ export async function runLocalServer(): Promise<void> {
     {
       title: 'Scan URL',
       description:
-        'Run deterministic local QA checks against a URL: console errors, broken links, accessibility, performance, SEO, and security headers.',
+        'Run deterministic local QA checks against a URL: console errors, broken links, accessibility, performance, SEO, and security headers. Set format:"markdown" for a shareable graded report.',
       inputSchema: {
         url: z.string().url(),
         checks: z.array(z.string()).optional(),
         maxLinks: z.number().int().min(0).max(250).optional(),
         screenshot: z.boolean().optional(),
+        format: z.enum(['json', 'markdown']).optional(),
         viewport: z
           .object({
             width: z.number().int().min(320).max(3840),
@@ -42,7 +55,10 @@ export async function runLocalServer(): Promise<void> {
           .optional(),
       },
     },
-    async (args) => jsonResult(await scanUrl(args))
+    async ({ format, ...args }) => {
+      const result = await scanUrl(args);
+      return format === 'markdown' ? textResult(renderReport(result)) : jsonResult(result);
+    }
   );
 
   server.registerTool(
