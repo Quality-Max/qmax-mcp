@@ -1,8 +1,11 @@
 # QualityMax QA MCP
 
-Private-first MCP server for local QA automation.
+The **scan & inspect companion** to [9lives](https://github.com/Quality-Max/9lives), QualityMax's open-source self-healing QA CLI.
 
-Give Claude Code, Cursor, and other MCP clients the ability to scan a URL, inspect a page, generate Playwright repro tests, and run those tests locally.
+- **9lives** answers *"my agent changed the code — did it break the tests, and can you heal them?"*
+- **qmax-mcp** answers *"point me at a URL — what's broken, and how do I reproduce it?"*
+
+An MCP server (and no-MCP CLI) for local QA automation: give Claude Code, Cursor, and other MCP clients the ability to scan a URL, inspect a page, generate Playwright repro tests, and run those tests locally.
 
 ```bash
 npx -y @qualitymax/qmax-mcp
