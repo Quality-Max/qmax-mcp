@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { runProxy } from './proxy';
 import { printClients } from './clients';
 import { runLocalServer } from './server';
+import { bugsinkErrorSummary, bugsinkListIssues } from './tools/bugsink';
 import { scanUrl } from './tools/scan-url';
 
 const DEFAULT_URL = 'https://app.qualitymax.io/api/mcp';
@@ -61,6 +62,40 @@ program
       screenshot: options.screenshot,
     });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+const bugsink = program
+  .command('bugsink')
+  .description('Read-only, sanitized Bugsink error queries (needs QMAX_BUGSINK_URL and QMAX_BUGSINK_TOKEN)');
+
+bugsink
+  .command('summary')
+  .description('Sanitized per-project error summary from Bugsink')
+  .option('--project <idOrName>', 'Bugsink project id or name (defaults to the only project)')
+  .action(async (options: { project?: string }) => {
+    const result = await bugsinkErrorSummary({ project: options.project });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    if (!result.ok) process.exitCode = 1;
+  });
+
+bugsink
+  .command('issues')
+  .description('Sanitized, length-capped Bugsink issue list')
+  .option('--project <idOrName>', 'Bugsink project id or name (defaults to the only project)')
+  .option('--limit <n>', 'Maximum issues to return (max 50)', '20')
+  .option('--sort <sort>', 'Sort key: last_seen | events | digest_order', 'last_seen')
+  .option('--order <order>', 'Order: asc | desc', 'desc')
+  .option('--cursor <cursor>', 'Pagination cursor from a previous response')
+  .action(async (options: { project?: string; limit: string; sort: string; order: string; cursor?: string }) => {
+    const result = await bugsinkListIssues({
+      project: options.project,
+      limit: Number.parseInt(options.limit, 10),
+      sort: options.sort as 'last_seen' | 'events' | 'digest_order',
+      order: options.order as 'asc' | 'desc',
+      cursor: options.cursor,
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    if (!result.ok) process.exitCode = 1;
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
