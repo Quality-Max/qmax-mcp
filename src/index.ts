@@ -5,6 +5,8 @@ import { runProxy } from './proxy';
 import { printClients } from './clients';
 import { runLocalServer } from './server';
 import { scanUrl } from './tools/scan-url';
+import { renderReport } from './report';
+import { writeFile } from 'node:fs/promises';
 
 const DEFAULT_URL = 'https://app.qualitymax.io/api/mcp';
 
@@ -49,19 +51,33 @@ program
   .option('--checks <checks>', 'Comma-separated checks to run')
   .option('--max-links <n>', 'Maximum links to check', '50')
   .option('--screenshot', 'Capture a screenshot', false)
-  .action(async (url: string, options: { checks?: string; maxLinks: string; screenshot: boolean }) => {
-    const checks = options.checks
-      ?.split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const result = await scanUrl({
-      url,
-      checks,
-      maxLinks: Number.parseInt(options.maxLinks, 10),
-      screenshot: options.screenshot,
-    });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-  });
+  .option('--format <format>', 'Output format: markdown or json', 'markdown')
+  .option('--out <file>', 'Write the report to a file instead of stdout')
+  .action(
+    async (
+      url: string,
+      options: { checks?: string; maxLinks: string; screenshot: boolean; format: string; out?: string }
+    ) => {
+      const checks = options.checks
+        ?.split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const result = await scanUrl({
+        url,
+        checks,
+        maxLinks: Number.parseInt(options.maxLinks, 10),
+        screenshot: options.screenshot,
+      });
+      const output =
+        options.format === 'json' ? `${JSON.stringify(result, null, 2)}\n` : renderReport(result);
+      if (options.out) {
+        await writeFile(options.out, output, 'utf8');
+        process.stderr.write(`Report written to ${options.out}\n`);
+      } else {
+        process.stdout.write(output.endsWith('\n') ? output : `${output}\n`);
+      }
+    }
+  );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   process.stderr.write(`Fatal: ${err instanceof Error ? err.message : String(err)}\n`);

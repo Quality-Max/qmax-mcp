@@ -18,7 +18,27 @@ export type Finding = {
   url?: string;
   selector?: string;
   suggestion?: string;
+  /** Copy-paste, verifiable reproduction step (curl one-liner or DevTools steps). */
+  repro?: string;
 };
+
+export const SEVERITY_RANK: Record<Severity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
+
+export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
+
+export function gradeFromScore(score: number): Grade {
+  if (score >= 90) return 'A';
+  if (score >= 75) return 'B';
+  if (score >= 60) return 'C';
+  if (score >= 40) return 'D';
+  return 'F';
+}
 
 export const DEFAULT_VIEWPORT: Viewport = { width: 1366, height: 900 };
 

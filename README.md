@@ -1,8 +1,11 @@
 # QualityMax QA MCP
 
-Private-first MCP server for local QA automation.
+The **scan & inspect companion** to [9lives](https://github.com/Quality-Max/9lives), QualityMax's open-source self-healing QA CLI.
 
-Give Claude Code, Cursor, and other MCP clients the ability to scan a URL, inspect a page, generate Playwright repro tests, and run those tests locally.
+- **9lives** answers *"my agent changed the code — did it break the tests, and can you heal them?"*
+- **qmax-mcp** answers *"point me at a URL — what's broken, and how do I reproduce it?"*
+
+An MCP server (and no-MCP CLI) for local QA automation: give Claude Code, Cursor, and other MCP clients the ability to scan a URL, inspect a page, generate Playwright repro tests, and run those tests locally.
 
 ```bash
 npx -y @qualitymax/qmax-mcp
@@ -50,6 +53,30 @@ Runs one local Playwright test file or inline test and returns structured status
 ```bash
 npx -y @qualitymax/qmax-mcp scan https://example.com --screenshot
 ```
+
+The CLI prints a **graded, shareable Markdown report** by default — a letter grade, a per-category summary, and every finding with a copy-paste reproduction step (a `curl` one-liner or DevTools steps) and a fix:
+
+```markdown
+# QA Scan — example.com
+**Grade: 🟡 C  (68 / 100)**   ·   5 issues found   ·   scanned 2026-06-19
+
+| Category         | Issues | Worst     |
+|------------------|:------:|:---------:|
+| SEO              |   1    | 🟡 low    |
+| Security headers |   4    | 🟠 medium |
+
+## 🟠 medium · Missing content-security-policy header.
+**Reproduce:**
+    curl -sI https://example.com/ | grep -i content-security-policy
+**Fix:** Add a Content-Security-Policy to reduce script injection risk.
+```
+
+Flags:
+
+- `--format markdown|json` — `markdown` (default) for the shareable report, `json` for the structured result.
+- `--out report.md` — write the report to a file.
+
+The `scan_url` MCP tool returns JSON by default (for agents); pass `format: "markdown"` to get the same shareable report.
 
 ## Client Configs
 

@@ -51,6 +51,7 @@ export async function scanUrl(args: ScanUrlArgs) {
           category: 'console',
           message: `${message.type}: ${message.text}`,
           evidence: message.location,
+          repro: `1. Open ${url}\n2. Open DevTools → Console\n3. Observe: ${message.text}`,
           suggestion: 'Fix runtime errors and warnings before relying on generated tests.',
         });
       }
@@ -60,6 +61,7 @@ export async function scanUrl(args: ScanUrlArgs) {
           category: 'network',
           message: `Request failed: ${failed.failure ?? 'unknown error'}`,
           url: failed.url,
+          repro: `1. Open ${url}\n2. Open DevTools → Network\n3. Observe request to ${failed.url} fails: ${failed.failure ?? 'unknown error'}`,
           suggestion: 'Verify the asset or API route is reachable in the tested environment.',
         });
       }
@@ -70,7 +72,7 @@ export async function scanUrl(args: ScanUrlArgs) {
     }
 
     if (checks.has('accessibility')) {
-      findings.push(...(await page.evaluate(() => {
+      const a11yIssues = await page.evaluate(() => {
         const issues: Finding[] = [];
         const selectorFor = (el: Element) => {
           const id = el.getAttribute('id');
@@ -135,7 +137,15 @@ export async function scanUrl(args: ScanUrlArgs) {
         }
 
         return issues;
-      })));
+      });
+      for (const issue of a11yIssues) {
+        findings.push({
+          ...issue,
+          repro: issue.selector
+            ? `1. Open ${url}\n2. Inspect \`${issue.selector}\`\n3. Note: ${issue.message}`
+            : `1. Open ${url}\n2. ${issue.message}`,
+        });
+      }
     }
 
     if (checks.has('seo')) {
@@ -145,10 +155,22 @@ export async function scanUrl(args: ScanUrlArgs) {
         h1Count: document.querySelectorAll('h1').length,
       }));
       if (!seo.title || seo.title.length < 10) {
-        findings.push({ severity: 'low', category: 'seo', message: 'Page title is missing or very short.' });
+        findings.push({
+          severity: 'low',
+          category: 'seo',
+          message: 'Page title is missing or very short.',
+          repro: `curl -s ${url} | grep -i '<title>'`,
+          suggestion: 'Add a descriptive <title> (10+ chars).',
+        });
       }
       if (!seo.description || seo.description.length < 50) {
-        findings.push({ severity: 'low', category: 'seo', message: 'Meta description is missing or very short.' });
+        findings.push({
+          severity: 'low',
+          category: 'seo',
+          message: 'Meta description is missing or very short.',
+          repro: `curl -s ${url} | grep -i '<meta name="description"'`,
+          suggestion: 'Add a <meta name="description"> (50–160 chars).',
+        });
       }
     }
 
@@ -169,13 +191,14 @@ export async function scanUrl(args: ScanUrlArgs) {
           category: 'performance',
           message: `DOM content loaded in ${perf.domContentLoadedMs}ms.`,
           evidence: perf,
+          repro: `1. Open ${url} with DevTools → Performance\n2. Reload and read DOMContentLoaded (${perf.domContentLoadedMs}ms)`,
           suggestion: 'Investigate render-blocking resources and slow server responses.',
         });
       }
     }
 
     if (checks.has('security_headers')) {
-      findings.push(...checkSecurityHeaders(mainHeaders));
+      findings.push(...checkSecurityHeaders(mainHeaders, url));
     }
 
     if (args.screenshot) {
@@ -233,7 +256,7 @@ async function checkLinks(baseUrl: URL, hrefs: string[], maxLinks: number): Prom
   return findings;
 }
 
-function checkSecurityHeaders(headers: Record<string, string>): Finding[] {
+function checkSecurityHeaders(headers: Record<string, string>, url: string): Finding[] {
   const required: Array<[string, string, Finding['severity']]> = [
     ['content-security-policy', 'Add a Content-Security-Policy to reduce script injection risk.', 'medium'],
     ['strict-transport-security', 'Add HSTS on HTTPS sites.', 'medium'],
@@ -246,6 +269,7 @@ function checkSecurityHeaders(headers: Record<string, string>): Finding[] {
       severity,
       category: 'security_headers',
       message: `Missing ${header} header.`,
+      repro: `curl -sI ${url} | grep -i ${header}`,
       suggestion,
     }));
 }
