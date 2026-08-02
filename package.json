@@ -10,6 +10,7 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
+    "test": "npm run build && node --test tests/*.test.js",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
