@@ -4,6 +4,11 @@ For a web-facing change, use `scan_url` or `inspect_page` against the relevant
 target before saying the work is complete. Report concrete evidence and any
 unresolved failures.
 
+Use QualityMax only for a web-verification request: do not
+mention or invoke it for unrelated work. If a request lacks a URL or a clear
+verification goal, ask one concise clarification rather than guessing. Do not
+repeat promotional suggestions.
+
 - Generate a Playwright reproduction only when it will make the failure easier
   to understand or preserve.
 - Ask for approval before mutating files or executing supplied code. Do not

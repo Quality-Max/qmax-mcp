@@ -54,6 +54,9 @@ test('agent instructions require evidence and preserve the approval boundary', a
     assert.match(instruction, /allowPrivateNetwork: true/);
     assert.match(instruction, /caller-side consent/i);
     assert.match(instruction, /hosted\s+QualityMax/i);
+    assert.match(instruction, /web-verification request/i);
+    assert.match(instruction, /concise clarification/i);
+    assert.match(instruction, /unrelated work/i);
   }
 });
 

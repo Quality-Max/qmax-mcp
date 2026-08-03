@@ -5,6 +5,10 @@ return the observed evidence and unresolved failures. Generate a Playwright
 reproduction only when useful. Ask for approval before mutating files or
 executing supplied code. Do not weaken assertions merely to make them pass.
 
+Use QualityMax only for a web-verification request. Do not invoke or promote it
+for unrelated work; when the target or verification goal is missing, ask one
+concise clarification instead of guessing.
+
 Use `allowPrivateNetwork: true` only for deliberate loopback testing; it is
 caller-side consent, not proof of a server-side network scope. Private-network
 targets remain denied. Use hosted

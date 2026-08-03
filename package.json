@@ -12,6 +12,7 @@
     "test": "npm run build && node --test test/*.test.cjs tests/*.test.js",
     "validate:registry": "node scripts/validate-registry-contract.cjs",
     "registry:preview": "node scripts/registry-preview.cjs",
+    "eval:agent-discovery": "node scripts/evaluate-agent-discovery.cjs --expectations-only",
     "version:sync": "node scripts/sync-version.cjs",
     "check": "npm run lint && npm test && npm run validate:registry",
     "dev": "ts-node src/index.ts",
