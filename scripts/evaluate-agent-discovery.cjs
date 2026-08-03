@@ -11,8 +11,16 @@ function parseArgs(argv) {
   const results = [];
   let expectationsOnly = false;
   for (let index = 0; index < argv.length; index += 1) {
-    if (argv[index] === '--results') results.push(argv[++index]);
-    if (argv[index] === '--expectations-only') expectationsOnly = true;
+    if (argv[index] === '--results') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--results requires a file path argument');
+      }
+      results.push(value);
+      index += 1;
+    } else if (argv[index] === '--expectations-only') {
+      expectationsOnly = true;
+    }
   }
   return { expectationsOnly, results };
 }
@@ -69,6 +77,14 @@ function scoreRun(run, cases) {
   return { client: run.client, model: run.model, firstToolCorrect, invocationCorrect, total: cases.length, blockers };
 }
 
+function assertRunMeetsGate(score) {
+  const firstToolRate = score.firstToolCorrect / score.total;
+  const invocationRate = score.invocationCorrect / score.total;
+  assert.ok(firstToolRate >= 0.9, `${score.client} ${score.model}: first-tool rate ${(firstToolRate * 100).toFixed(1)}% is below 90%`);
+  assert.ok(invocationRate >= 0.9, `${score.client} ${score.model}: invocation rate ${(invocationRate * 100).toFixed(1)}% is below 90%`);
+  assert.deepEqual(score.blockers, [], `${score.client} ${score.model}: release blockers: ${score.blockers.join('; ')}`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const corpus = JSON.parse(await readFile(casesPath, 'utf8'));
@@ -85,17 +101,15 @@ async function main() {
     'release gate requires results from distinct clients',
   );
   const scores = runs.map((run) => scoreRun(run, corpus.cases));
-  for (const score of scores) {
-    const firstToolRate = score.firstToolCorrect / score.total;
-    const invocationRate = score.invocationCorrect / score.total;
-    assert.ok(firstToolRate >= 0.9, `${score.client} ${score.model}: first-tool rate ${(firstToolRate * 100).toFixed(1)}% is below 90%`);
-    assert.ok(invocationRate >= 0.9, `${score.client} ${score.model}: invocation rate ${(invocationRate * 100).toFixed(1)}% is below 90%`);
-    assert.deepEqual(score.blockers, [], `${score.client} ${score.model}: release blockers: ${score.blockers.join('; ')}`);
-  }
+  for (const score of scores) assertRunMeetsGate(score);
   process.stdout.write(`${JSON.stringify({ version: corpus.version, scores }, null, 2)}\n`);
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
-});
+module.exports = { parseArgs, validateCorpus, scoreRun, assertRunMeetsGate };
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  });
+}
