@@ -3,7 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { generatePlaywrightRepro } from './tools/generate-playwright-repro';
 import { inspectPage } from './tools/inspect-page';
-import { runPlaywrightTest } from './tools/run-playwright-test';
+import { describeExecutionApproval, runPlaywrightTest, type RunPlaywrightTestArgs } from './tools/run-playwright-test';
 import { scanUrl } from './tools/scan-url';
 import { renderReport } from './report';
 import { MCP_SERVER_NAME, PACKAGE_VERSION } from './metadata';
@@ -27,6 +27,44 @@ function textResult(text: string) {
         text,
       },
     ],
+  };
+}
+
+async function requestHumanExecutionApproval(server: McpServer, args: RunPlaywrightTestArgs) {
+  const approval = await describeExecutionApproval(args);
+  let response;
+  try {
+    response = await server.server.elicitInput({
+      mode: 'form',
+      message:
+        `Approve execution of ${approval.source} (${approval.target}). ` +
+        'It can write run artifacts and make any network requests contained in the supplied test. ' +
+        `This approval is bound to SHA-256 ${approval.digest} and cannot be reused for changed code.`,
+      requestedSchema: {
+        type: 'object',
+        properties: {
+          approved: {
+            type: 'boolean',
+            title: 'Approve code execution',
+            description: 'Select true only after reviewing the execution target and effects above.',
+          },
+        },
+        required: ['approved'],
+      },
+    });
+  } catch {
+    throw new Error('This MCP client cannot provide verifiable human approval for code execution.');
+  }
+
+  if (response.action !== 'accept' || response.content?.['approved'] !== true) {
+    throw new Error('Human approval for code execution was declined or cancelled.');
+  }
+
+  return {
+    mechanism: 'mcp-form-elicitation-v1',
+    digest: approval.digest,
+    target: approval.target,
+    client: server.server.getClientVersion()?.name || 'unknown-client',
   };
 }
 
@@ -126,7 +164,7 @@ export function createLocalServer(): McpServer {
     {
       title: 'Run Playwright Test',
       description:
-        'Execute supplied local Playwright code or a local test file. This is a code-execution and artifact-writing boundary: clients must obtain explicit approval before calling it. The runner may make outbound network requests requested by the test.',
+        'Execute supplied local Playwright code or a local test file. This is a code-execution and artifact-writing boundary: qmax-mcp first requires an MCP human-approval elicitation bound to the exact test digest. The runner may make outbound network requests requested by the test.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
@@ -142,10 +180,13 @@ export function createLocalServer(): McpServer {
         timeoutMs: z.number().int().min(1000).max(300000).optional(),
         wallClockTimeoutMs: z.number().int().min(1000).max(330000).optional(),
         allowedEnv: z.record(z.string(), z.string()).optional(),
-        executionAcknowledged: z.literal(true).describe('Required acknowledgement before supplied test code is executed.'),
       },
     },
-    async (args, extra) => jsonResult(await runPlaywrightTest(args, { signal: extra.signal }))
+    async (args, extra) => {
+      const approval = await requestHumanExecutionApproval(server, args);
+      const result = await runPlaywrightTest(args, { signal: extra.signal, approvalDigest: approval.digest });
+      return jsonResult({ ...result, approval });
+    }
   );
 
   return server;

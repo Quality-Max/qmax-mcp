@@ -68,7 +68,7 @@ test('supported Node runtime is consistent across package metadata, CI, and rele
   assert.equal(packageJson.engines.node, '>=22.13.0');
   assert.match(qualityWorkflow, /node: \["22\.13", "24"\]/);
   assert.match(releaseWorkflow, /node: \["22\.13", "24"\]/);
-  assert.match(releaseWorkflow, /node-version: "22\.13"/);
+  assert.match(releaseWorkflow, /node-version: "24"/);
   assert.match(readme, /Node 22\.13\.0 or newer/);
   assert.match(releaseGuide, /Node 22\.13 and 24/);
 });

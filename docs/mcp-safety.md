@@ -9,7 +9,7 @@ both the annotation flags and every tool description.
 | `scan_url` | Outbound browser and HTTP requests | Optional screenshot artifact | No | Approve a networked scan / artifact write |
 | `inspect_page` | Outbound browser requests | No intended write | No | Approve target inspection |
 | `generate_playwright_repro` | None | Writes under `.qmax-mcp/repros` | No | Approve file creation or explicit overwrite |
-| `run_playwright_test` | May be requested by supplied test code | Writes controlled run artifacts | Yes | Require `executionAcknowledged: true` after code-execution approval |
+| `run_playwright_test` | May be requested by supplied test code | Writes controlled run artifacts | Yes | Require an accepted MCP form elicitation for the exact execution digest |
 
 The MCP-standard `readOnlyHint`, `destructiveHint`, `idempotentHint`, and
 `openWorldHint` values are locked by a protocol-level tool-list test using two
@@ -42,8 +42,19 @@ host path. Generated repros are durable workspace artifacts; remove the
 path, `BASE_URL` from the request, and a runner marker. It does not inherit the
 parent process environment. A caller may deliberately add non-sensitive values
 with `allowedEnv`; reserved process-control variables cannot be replaced.
-Every call must also include `executionAcknowledged: true`; this makes the
-execution consent visible in the request rather than relying on a tool name.
+Before each call, the server issues an MCP form elicitation that states the
+execution target, its code-execution/filesystem/network effects, and a SHA-256
+digest of the test source plus every execution-affecting option. It runs only
+when the client returns `accept` with `approved: true`; the result includes the
+mechanism, digest, target, and client name as an approval record. A changed file
+or option has a different digest and must be approved again. The runner executes
+an approved snapshot, so changing a file after the approval screen cannot swap
+the direct test source.
+
+This is client-visible, protocol-verifiable consent—not identity attestation.
+It relies on a client that faithfully presents MCP form elicitations to a human.
+Clients without that capability fail closed, and qmax-mcp does not treat a tool
+argument or an agent assertion as human approval.
 
 The runner has an independent wall-clock limit (`wallClockTimeoutMs`) and
 terminates its process group on timeout or MCP request cancellation. It keeps
@@ -52,6 +63,14 @@ artifacts. Returned paths are workspace-relative. Raw stdout and stderr stay in
 the local artifact directory and are deliberately withheld from the MCP
 response, because supplied test code can print arbitrary secret formats. The
 response provides only a content-free indicator and numeric Playwright counts.
+
+## Hosted proxy boundary
+
+`qmax-mcp proxy` is the only hosted path. It always sends its bearer credential
+to `https://app.qualitymax.io/api/mcp`; it has no endpoint flag or environment
+override. HTTP redirects are rejected before a bearer can be forwarded. The
+proxy returns a generic transport error rather than echoing low-level endpoint
+or credential-bearing error text.
 
 ## URL network policy
 

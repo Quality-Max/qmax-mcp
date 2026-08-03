@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process';
-import { mkdir, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 export type RunPlaywrightTestArgs = {
   testPath?: string;
@@ -14,12 +14,18 @@ export type RunPlaywrightTestArgs = {
   timeoutMs?: number;
   wallClockTimeoutMs?: number;
   allowedEnv?: Record<string, string>;
-  /** Explicit acknowledgement required before supplied code is executed. */
-  executionAcknowledged?: boolean;
 };
 
 export type RunPlaywrightTestOptions = {
   signal?: AbortSignal;
+  /** Digest returned by the immediately preceding MCP human-approval elicitation. */
+  approvalDigest?: string;
+};
+
+export type ExecutionApprovalSummary = {
+  digest: string;
+  target: string;
+  source: 'inline code' | 'local test file';
 };
 
 const RESERVED_ENVIRONMENT_KEYS = new Set(['BASE_URL', 'NODE_PATH', 'PATH', 'TMP', 'TEMP', 'TMPDIR']);
@@ -29,15 +35,18 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
   if (!args.testPath && !args.code) {
     throw new Error('Provide either testPath or code');
   }
-  if (args.executionAcknowledged !== true) {
-    throw new Error('run_playwright_test requires explicit executionAcknowledged: true.');
+  if (!options.approvalDigest) {
+    throw new Error('run_playwright_test requires a verified MCP human-approval record.');
   }
 
   const workspaceRoot = await realpath(process.cwd());
+  const approval = await describeExecutionApproval(args, workspaceRoot);
+  if (approval.digest !== options.approvalDigest) {
+    throw new Error('The test changed after human approval; request approval again.');
+  }
+
   const outputDir = await createRunDirectory(workspaceRoot);
-  const testPath = args.testPath
-    ? await resolveWorkspaceTestPath(workspaceRoot, args.testPath)
-    : await writeInlineTest(outputDir, args.code || '');
+  const testPath = await writeApprovedTest(outputDir, approval.sourceCode);
   const configPath = path.join(outputDir, 'playwright.config.cjs');
   const testTimeout = Math.min(Math.max(args.timeoutMs ?? 60_000, 1_000), 300_000);
 
@@ -87,11 +96,49 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
   return {
     status: result.exitCode === 0 ? 'passed' : result.timedOut ? 'timed_out' : result.aborted ? 'cancelled' : 'failed',
     exitCode: result.exitCode,
-    testPath: toWorkspaceRelative(workspaceRoot, testPath),
+    testPath: approval.target,
+    executedSnapshot: toWorkspaceRelative(workspaceRoot, testPath),
     outputDir: toWorkspaceRelative(workspaceRoot, outputDir),
     summary: summarizeReporter(parsed),
     stdout: safeRunnerStream(result.stdout, 'stdout'),
     stderr: safeRunnerStream(result.stderr, 'stderr'),
+  };
+}
+
+/**
+ * Create an approval subject from every execution-affecting input. The server
+ * elicits an approval for this digest, then the runner recomputes it before
+ * launching a child. This prevents a caller from approving one payload and
+ * substituting another after the approval UI is shown.
+ */
+export async function describeExecutionApproval(
+  args: RunPlaywrightTestArgs,
+  workspaceRoot?: string
+): Promise<ExecutionApprovalSummary & { sourceCode: string }> {
+  if (!args.testPath && !args.code) {
+    throw new Error('Provide either testPath or code');
+  }
+
+  const resolvedWorkspaceRoot = workspaceRoot ?? (await realpath(process.cwd()));
+  const sourcePath = args.testPath ? await resolveWorkspaceTestPath(resolvedWorkspaceRoot, args.testPath) : undefined;
+  const sourceCode = sourcePath ? await readFile(sourcePath, 'utf8') : args.code || '';
+  const target = sourcePath ? toWorkspaceRelative(resolvedWorkspaceRoot, sourcePath) : 'inline Playwright test';
+  const input = {
+    target,
+    sourceCode,
+    baseUrl: args.baseUrl || '',
+    browser: args.browser || 'chromium',
+    headed: args.headed === true,
+    timeoutMs: args.timeoutMs ?? 60_000,
+    wallClockTimeoutMs: args.wallClockTimeoutMs ?? (args.timeoutMs ?? 60_000) + 30_000,
+    allowedEnv: args.allowedEnv || {},
+  };
+  const digest = createHash('sha256').update(stableStringify(input)).digest('hex');
+  return {
+    digest,
+    target,
+    source: sourcePath ? 'local test file' : 'inline code',
+    sourceCode,
   };
 }
 
@@ -137,8 +184,8 @@ async function resolveWorkspaceTestPath(workspaceRoot: string, requestedPath: st
   return resolved;
 }
 
-async function writeInlineTest(outputDir: string, code: string): Promise<string> {
-  const testPath = path.join(outputDir, 'inline.spec.ts');
+async function writeApprovedTest(outputDir: string, code: string): Promise<string> {
+  const testPath = path.join(outputDir, 'approved.spec.ts');
   await writeFile(testPath, code, 'utf8');
   return testPath;
 }
@@ -291,4 +338,16 @@ function assertWithin(root: string, candidate: string, message: string, allowRoo
   if ((!allowRoot && !relative) || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw new Error(message);
   }
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
 }

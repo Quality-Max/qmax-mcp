@@ -9,8 +9,6 @@ import { renderReport } from './report';
 import { writeFile } from 'node:fs/promises';
 import { PACKAGE_VERSION } from './metadata';
 
-const DEFAULT_URL = 'https://app.qualitymax.io/api/mcp';
-
 const program = new Command();
 
 program
@@ -36,13 +34,11 @@ program
 
 program
   .command('proxy')
-  .description('Proxy MCP stdio to the hosted QualityMax MCP endpoint')
+  .description('Proxy MCP stdio to the pinned hosted QualityMax MCP endpoint')
   .option('--api-key <key>', 'QualityMax API key (or set QUALITYMAX_API_KEY)')
-  .option('--url <url>', 'QualityMax MCP endpoint URL', DEFAULT_URL)
-  .action(async (options: { apiKey?: string; url: string }) => {
+  .action(async (options: { apiKey?: string }) => {
     const apiKey = options.apiKey ?? process.env['QUALITYMAX_API_KEY'] ?? '';
-    const url = process.env['QUALITYMAX_API_URL'] ?? options.url;
-    await runProxy(apiKey, url);
+    await runProxy(apiKey);
   });
 
 program

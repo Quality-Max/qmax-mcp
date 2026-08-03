@@ -1,6 +1,57 @@
 import { createInterface } from 'node:readline';
 
-export async function runProxy(apiKey: string, url: string): Promise<void> {
+/** The only endpoint to which this process may send a hosted bearer token. */
+export const HOSTED_MCP_ENDPOINT = 'https://app.qualitymax.io/api/mcp';
+
+type FetchLike = typeof fetch;
+
+/**
+ * Do not make the bearer destination configurable. A redirect can otherwise
+ * turn a convenience proxy into a credential-forwarding primitive.
+ */
+export function assertPinnedHostedEndpoint(url: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Hosted proxy endpoint is invalid.');
+  }
+
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.hostname !== 'app.qualitymax.io' ||
+    parsed.port ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== '/api/mcp' ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error('Hosted proxy endpoint is not the pinned QualityMax MCP endpoint.');
+  }
+  return parsed;
+}
+
+export async function forwardProxyRequest(
+  apiKey: string,
+  request: string,
+  fetchImpl: FetchLike = fetch
+): Promise<Response> {
+  const endpoint = assertPinnedHostedEndpoint(HOSTED_MCP_ENDPOINT);
+  return fetchImpl(endpoint, {
+    method: 'POST',
+    // Never follow redirects while an Authorization header is present.
+    redirect: 'error',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json, text/event-stream',
+    },
+    body: request,
+  });
+}
+
+export async function runProxy(apiKey: string): Promise<void> {
   if (!apiKey) {
     process.stderr.write(
       'Error: QUALITYMAX_API_KEY is required.\n' +
@@ -10,7 +61,7 @@ export async function runProxy(apiKey: string, url: string): Promise<void> {
     process.exit(1);
   }
 
-  process.stderr.write(`qmax-mcp: proxying stdio → ${url}\n`);
+  process.stderr.write(`qmax-mcp: proxying stdio to ${HOSTED_MCP_ENDPOINT}\n`);
 
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
 
@@ -29,15 +80,7 @@ export async function runProxy(apiKey: string, url: string): Promise<void> {
     const isRequest = 'id' in parsed;
 
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          Accept: 'application/json, text/event-stream',
-        },
-        body: trimmed,
-      });
+      const res = await forwardProxyRequest(apiKey, trimmed);
 
       if (!isRequest) continue;
 
@@ -49,12 +92,12 @@ export async function runProxy(apiKey: string, url: string): Promise<void> {
         const text = await res.text();
         if (text.trim()) process.stdout.write(text.trim() + '\n');
       }
-    } catch (err) {
+    } catch {
       if (isRequest) {
-        const errMsg = err instanceof Error ? err.message : String(err);
         const rpcError = {
           jsonrpc: '2.0',
-          error: { code: -32603, message: `Transport error: ${errMsg}` },
+          // Deliberately generic: network errors can contain internal endpoint details.
+          error: { code: -32603, message: 'Hosted proxy transport failed.' },
           id: parsed['id'] ?? null,
         };
         process.stdout.write(JSON.stringify(rpcError) + '\n');
