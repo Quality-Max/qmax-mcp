@@ -118,7 +118,7 @@ export function renderReport(result: ScanResult, opts: { now?: Date } = {}): str
 
   lines.push('---');
   lines.push('');
-  lines.push('_Scanned by **qmax** · `npx -y @qualitymax/qmax-mcp scan <url>` · free, local, no account_');
+  lines.push('_Scanned by **qmax-mcp** · `npx -y @qualitymax/qmax-mcp scan <url>` · free, local, no account_');
   lines.push('');
 
   return lines.join('\n');

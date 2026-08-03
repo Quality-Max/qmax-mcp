@@ -1,22 +1,25 @@
 {
   "name": "@qualitymax/qmax-mcp",
   "version": "0.1.0",
-  "description": "QualityMax local QA MCP server — scan, inspect, generate Playwright repros, and run tests",
+  "description": "Local QA MCP: scan URLs, inspect pages, generate Playwright repros, and run tests.",
+  "mcpName": "io.github.quality-max/qmax-mcp",
   "bin": {
-    "qmax-mcp": "dist/index.js",
-    "qmax": "dist/index.js"
+    "qmax-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "lint": "eslint src",
     "test": "npm run build && node --test test/*.test.cjs tests/*.test.js",
-    "check": "npm run lint && npm test",
+    "validate:registry": "node scripts/validate-registry-contract.cjs",
+    "registry:preview": "node scripts/registry-preview.cjs",
+    "version:sync": "node scripts/sync-version.cjs",
+    "check": "npm run lint && npm test && npm run validate:registry",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@playwright/test": "^1.61.0",
     "commander": "^12.0.0",
     "playwright": "^1.61.0",
@@ -24,16 +27,22 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "eslint": "^9.39.5",
     "ts-node": "^10.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.65.0"
   },
+  "overrides": {
+    "@hono/node-server": "1.19.14"
+  },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.18.0"
   },
   "files": [
     "dist",
+    "server.json",
     "smithery.yaml",
     "LICENSE"
   ],
@@ -50,6 +59,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Quality-Max/qmax-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Quality-Max/qmax-mcp/issues"
   },
   "homepage": "https://qualitymax.io"
 }

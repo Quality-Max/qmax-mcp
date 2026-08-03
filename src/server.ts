@@ -6,6 +6,7 @@ import { inspectPage } from './tools/inspect-page';
 import { runPlaywrightTest } from './tools/run-playwright-test';
 import { scanUrl } from './tools/scan-url';
 import { renderReport } from './report';
+import { MCP_SERVER_NAME, PACKAGE_VERSION } from './metadata';
 
 function jsonResult(value: unknown) {
   return {
@@ -31,8 +32,8 @@ function textResult(text: string) {
 
 export function createLocalServer(): McpServer {
   const server = new McpServer({
-    name: 'qmax-mcp',
-    version: '0.1.0',
+    name: MCP_SERVER_NAME,
+    version: PACKAGE_VERSION,
   });
 
   server.registerTool(

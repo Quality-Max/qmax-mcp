@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.quality-max/qmax-mcp",
+  "title": "QualityMax QA MCP",
+  "description": "Local QA MCP: scan URLs, inspect pages, generate Playwright repros, and run tests.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/Quality-Max/qmax-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://qualitymax.io",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@qualitymax/qmax-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

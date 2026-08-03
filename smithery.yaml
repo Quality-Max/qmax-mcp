@@ -1,4 +1,4 @@
-name: qmax
+name: qmax-mcp
 displayName: QualityMax QA MCP
 description: >
   Local-first QA MCP server: scan URLs, inspect pages, generate Playwright repros,

@@ -1,4 +1,4 @@
-const PACKAGE_NAME = '@qualitymax/qmax-mcp';
+import { PACKAGE_NAME } from './metadata';
 const SETTINGS_URL = 'https://app.qualitymax.io/settings/api-tokens';
 
 export function renderClients(): string {

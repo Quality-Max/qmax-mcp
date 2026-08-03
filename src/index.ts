@@ -7,6 +7,7 @@ import { runLocalServer } from './server';
 import { scanUrl } from './tools/scan-url';
 import { renderReport } from './report';
 import { writeFile } from 'node:fs/promises';
+import { PACKAGE_VERSION } from './metadata';
 
 const DEFAULT_URL = 'https://app.qualitymax.io/api/mcp';
 
@@ -15,7 +16,7 @@ const program = new Command();
 program
   .name('qmax-mcp')
   .description('QualityMax local QA MCP server')
-  .version('0.1.0')
+  .version(PACKAGE_VERSION)
   .option('--clients', 'Print copy-paste MCP client configs and exit')
   .action(async (options: { clients?: boolean }) => {
     if (options.clients) {
