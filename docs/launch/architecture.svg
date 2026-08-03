@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="270" viewBox="0 0 920 270" role="img" aria-labelledby="title desc">
+  <title id="title">QualityMax local-first architecture</title>
+  <desc id="desc">A coding agent uses qmax-mcp locally for four tools; an explicit optional proxy connects to hosted QualityMax.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #14213d; }
+    .box { fill: #f7faff; stroke: #3159a7; stroke-width: 2; rx: 14; }
+    .local { fill: #eaf7ef; stroke: #217a45; stroke-width: 2; rx: 14; }
+    .cloud { fill: #fff6e5; stroke: #a76400; stroke-width: 2; stroke-dasharray: 8 6; rx: 14; }
+    .arrow { stroke: #415a77; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    .small { font-size: 15px; }
+    .label { font-size: 20px; font-weight: 700; }
+  </style>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#415a77"/></marker></defs>
+  <rect x="30" y="83" width="210" height="105" class="box"/>
+  <text x="135" y="122" text-anchor="middle" class="label">Coding agent</text>
+  <text x="135" y="151" text-anchor="middle" class="small">Claude · Cursor · Codex · VS Code</text>
+  <text x="135" y="174" text-anchor="middle" class="small">reviews requested actions</text>
+  <path d="M240 135 H330" class="arrow"/>
+  <rect x="335" y="35" width="265" height="205" class="local"/>
+  <text x="467" y="75" text-anchor="middle" class="label">qmax-mcp (local)</text>
+  <text x="467" y="110" text-anchor="middle" class="small">scan_url · inspect_page</text>
+  <text x="467" y="138" text-anchor="middle" class="small">generate_playwright_repro</text>
+  <text x="467" y="166" text-anchor="middle" class="small">run_playwright_test</text>
+  <text x="467" y="208" text-anchor="middle" class="small">No account required</text>
+  <path d="M600 135 H690" class="arrow"/>
+  <rect x="695" y="83" width="195" height="105" class="cloud"/>
+  <text x="792" y="122" text-anchor="middle" class="label">Hosted QualityMax</text>
+  <text x="792" y="151" text-anchor="middle" class="small">explicit proxy only</text>
+  <text x="792" y="174" text-anchor="middle" class="small">account-backed workflows</text>
+  <text x="650" y="252" text-anchor="middle" class="small">Optional boundary — configure only when hosted capability is needed</text>
+</svg>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QualityMax reproducible demo</title>
+    <meta
+      name="description"
+      content="A dependency-free local fixture that deliberately throws a browser error for the QualityMax demo."
+    />
+  </head>
+  <body>
+    <main>
+      <h1>Reproducible QualityMax demo</h1>
+      <p>This fixture intentionally throws one browser error. Do not use it as production code.</p>
+    </main>
+    <script>
+      throw new Error('Demo checkout calculation failed');
+    </script>
+  </body>
+</html>

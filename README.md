@@ -1,158 +1,70 @@
 # QualityMax QA MCP
 
-The **scan & inspect companion** to [9lives](https://github.com/Quality-Max/9lives), QualityMax's open-source self-healing QA CLI.
-
-- **9lives** answers *"my agent changed the code — did it break the tests, and can you heal them?"*
-- **qmax-mcp** answers *"point me at a URL — what's broken, and how do I reproduce it?"*
-
-An MCP server (and no-MCP CLI) for local QA automation: give Claude Code, Cursor, and other MCP clients the ability to scan a URL, inspect a page, generate Playwright repro tests, and run those tests locally.
+Give a coding agent independent QA evidence before it declares a web change done: scan the page, inspect the UI, generate a focused Playwright repro, then review the execution result.
 
 ```bash
 npx -y @qualitymax/qmax-mcp
 ```
 
-No QualityMax account is required for the local tools.
+The four local tools require no QualityMax account, API key, or hosted service.
 
-`qmax-mcp` is this local npm package. QualityMax is the product, `9lives` is
-the separate self-healing CLI, and `qmax-code` is a separate coding-agent
-project. The command above is the only local installation command documented
-by this repository.
+## Start with a useful result
 
-## Security model and release gates
-
-The public local/hosted trust boundary, current launch blockers, required
-regression evidence, and the public-distribution checklist are maintained in
-[the security threat model](docs/security-threat-model.md). Local scanning is
-networked; the local test-execution and generated-file protections listed there
-are mandatory pre-publication controls, not claims of present enforcement. This
-repository must not be made public or published until that checklist is fully
-verified for the exact release commit.
-
-## Tools
-
-### `scan_url`
-
-Runs deterministic local QA checks:
-
-- browser console errors and warnings
-- failed network requests
-- broken links
-- basic accessibility issues
-- SEO basics
-- lightweight performance timing
-- HTTP security headers
-- optional screenshot capture
-
-### `inspect_page`
-
-Returns structured page context for agents:
-
-- headings
-- buttons, links, inputs, and forms
-- role/name locator suggestions
-- data-testid/data-test/data-qa candidates
-- accessibility snapshot
-
-### `generate_playwright_repro`
-
-Generates a minimal Playwright `.spec.ts` from a URL, goal, or `scan_url` finding.
-
-Generated repros are written only under `.qmax-mcp/repros` in the active
-workspace. Supply a relative `outputPath` such as `login/repro.spec.ts`; an
-existing file requires the explicit `overwrite: true` decision. See the
-[MCP safety contract](docs/mcp-safety.md) for copy-paste examples and the
-network, filesystem, and code-execution approval boundaries for every tool.
-
-The first version is deterministic template generation. BYO LLM and hosted QualityMax generation can be added without changing the tool contract.
-
-### `run_playwright_test`
-
-Runs one local Playwright test file or inline test and returns structured status, output, failures, and artifact directory.
-
-## No-MCP CLI
+Ask an MCP-enabled agent to scan the URL it changed, or run the local CLI:
 
 ```bash
-npx -y @qualitymax/qmax-mcp scan https://example.com --screenshot
+npx -y @qualitymax/qmax-mcp scan https://example.com --format markdown
 ```
 
-The CLI prints a **graded, shareable Markdown report** by default — a letter grade, a per-category summary, and every finding with a copy-paste reproduction step (a `curl` one-liner or DevTools steps) and a fix:
+The report includes a grade, findings, concrete reproduction steps, and suggested fixes. For a checked-in, dependency-free walkthrough of the whole flow, see the [reproducible demo](demo/README.md): **scan → finding → generated repro → executed evidence**.
 
-```markdown
-# QA Scan — example.com
-**Grade: 🟡 C  (68 / 100)**   ·   5 issues found   ·   scanned 2026-06-19
+## What the agent can do
 
-| Category         | Issues | Worst     |
-|------------------|:------:|:---------:|
-| SEO              |   1    | 🟡 low    |
-| Security headers |   4    | 🟠 medium |
+| Tool | Local capability | Boundary to review |
+| --- | --- | --- |
+| `scan_url` | Scan a URL for console, network, link, accessibility, SEO, performance, and header findings. | It makes outbound requests and can write a screenshot. |
+| `inspect_page` | Return page structure and role/name locator candidates. | It makes outbound requests. |
+| `generate_playwright_repro` | Write a deterministic, workspace-contained Playwright repro. | It writes below `.qmax-mcp/repros`; overwrites are explicit. |
+| `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; require a human approval in the client. |
 
-## 🟠 medium · Missing content-security-policy header.
-**Reproduce:**
-    curl -sI https://example.com/ | grep -i content-security-policy
-**Fix:** Add a Content-Security-Policy to reduce script injection risk.
-```
+The local server does not require an account. [Hosted proxy mode](#hosted-proxy-mode) is a separate, opt-in connection for account-backed QualityMax capabilities; do not add it unless that capability is needed.
 
-Flags:
+## Add it to your coding agent
 
-- `--format markdown|json` — `markdown` (default) for the shareable report, `json` for the structured result.
-- `--out report.md` — write the report to a file.
+Copy a ready-made, no-credential configuration and the accompanying instruction file for your client:
 
-The `scan_url` MCP tool returns JSON by default (for agents); pass `format: "markdown"` to get the same shareable report.
+| Claude Code | Cursor | Codex | VS Code |
+| --- | --- | --- | --- |
+| [`claude/.mcp.json`](examples/agent-setup/claude/.mcp.json) | [`cursor/.cursor`](examples/agent-setup/cursor/.cursor) | [`codex/.codex/config.toml`](examples/agent-setup/codex/.codex/config.toml) | [`vscode/.vscode/mcp.json`](examples/agent-setup/vscode/.vscode/mcp.json) |
 
-## Client Configs
+The [agent setup guide](docs/agent-setup.md) explains the expected approval surfaces and has a generic stdio configuration. The root [`AGENTS.md`](AGENTS.md) is the portable instruction: collect evidence, report unresolved failures, and request approval before mutating files or executing supplied code.
 
-Ready-made, repository-native configurations and agent instructions for Claude
-Code, Cursor, Codex, VS Code, and other stdio clients are in the [agent setup
-guide](docs/agent-setup.md). It also separates no-account local mode from the
-explicit hosted proxy.
+## Safety and honest limits
 
-Print the local and hosted configuration templates from the CLI:
+- Local scanning is networked. Private targets are denied by default; `allowPrivateNetwork: true` is only deliberate caller-side consent for a narrow loopback target.
+- Generated repros stay in a controlled workspace directory. Test runs use a minimal environment and controlled artifact directory.
+- `executionAcknowledged: true` records a caller assertion, but it does **not** independently prove that a human approved execution. Client-visible, verifiable human approval remains a release blocker tracked separately in QUA-1730.
+- Read the full [MCP safety contract](docs/mcp-safety.md) and [security threat model](docs/security-threat-model.md) before publishing or enabling hosted capabilities.
 
-```bash
-npx -y @qualitymax/qmax-mcp --clients
-```
+## Architecture
 
-Claude Code `.mcp.json`:
+![Agent-to-local-server and optional-cloud boundary](docs/launch/architecture.svg)
 
-```json
-{
-  "mcpServers": {
-    "qmax": {
-      "command": "npx",
-      "args": ["-y", "@qualitymax/qmax-mcp"]
-    }
-  }
-}
-```
+The [launch comparison](docs/launch/competitor-comparison.md) records dated, first-party capability references for TestSprite, BrowserStack, mabl, and Momentic. It is a factual boundary comparison, not a ranking.
 
-## Hosted Proxy Mode
+## Hosted proxy mode
 
-The local tools are the OSS wedge. Hosted QualityMax remains available as an explicit proxy mode for workspace-backed project/test-case/script workflows:
+The local tools are the open, local-first layer. Hosted QualityMax is an explicit proxy for workspace-backed project, test-case, script, and observability workflows:
 
 ```bash
 QUALITYMAX_API_KEY="<your-api-key>" npx -y @qualitymax/qmax-mcp proxy
 ```
 
-Hosted observability tools, including the read-only Bugsink summary and issue-list tools, are available only through this proxy mode and remain subject to the authenticated account's permissions. The local server does not connect directly to Bugsink or read Bugsink credentials. Do not add the proxy configuration unless a hosted-only capability is needed.
+Only configure the proxy when a hosted-only capability is needed. The binding security review must be passed before treating a hosted proxy configuration as launch-ready.
 
-## Private-First Launch Boundary
+## Support and responsible disclosure
 
-Free/private-first:
-
-- local URL scanning
-- page inspection
-- deterministic Playwright repro generation
-- local Playwright execution
-
-Keep paid:
-
-- hosted browser runners
-- persisted projects, scripts, executions, and history
-- CI gates and PR comments
-- managed self-healing at scale
-- private repo analysis
-- corpus-backed AI crawl
-- team dashboards and enterprise auth
+Use [GitHub Issues](https://github.com/Quality-Max/qmax-mcp/issues) for non-sensitive usage and documentation support. Do not report vulnerabilities in a public issue; follow the repository [security policy](SECURITY.md). The [launch checklist](docs/launch/launch-checklist.md) includes the owner checks required before any public announcement.
 
 ## Development
 
@@ -160,19 +72,13 @@ The runtime requires Node 22.13.0 or newer.
 
 ```bash
 npm install
-npm run lint
-npm run build
-npm run check # lint, tests, and MCP Registry schema validation
-npm run registry:preview # inspect the generated MCP Registry submission data
 npx playwright install chromium
-node dist/index.js scan https://example.com
+npm run check
+npm run demo
 ```
+
+`npm run demo` starts a dependency-free local fixture, prints a Markdown quality receipt by default, and leaves its generated repro and Playwright artifacts under `.qmax-mcp/` for inspection. Use `npm run demo -- --format json` for a machine-readable receipt.
 
 ## Package and release metadata
 
-`server.json` is the canonical MCP Registry manifest. `npm run validate:registry`
-checks it against the official schema without publishing anything. Before a
-release, use `npm run version:sync -- <semver>` and then
-`npm run version:sync -- --check` to update and verify every public metadata
-surface together. The release workflow and rollback procedure are documented in
-[the release runbook](docs/release.md).
+`server.json` is the canonical MCP Registry manifest. `npm run validate:registry` checks it against the official schema without publishing anything. Before a release, use `npm run version:sync -- <semver>` and then `npm run version:sync -- --check` to update and verify every public metadata surface together. The release workflow and rollback procedure are documented in [the release runbook](docs/release.md).
