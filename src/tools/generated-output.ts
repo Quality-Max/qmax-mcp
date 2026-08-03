@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, open, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, open, realpath, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 const OUTPUT_DIRECTORY = '.qmax-mcp/repros';

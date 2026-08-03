@@ -146,9 +146,14 @@ Keep paid:
 
 ## Development
 
+The runtime supports Node 18+. The lint tooling requires Node 18.18+, Node
+20.9+, or Node 21.1+.
+
 ```bash
 npm install
+npm run lint
 npm run build
+npm run check # lint plus the full test suite
 npx playwright install chromium
 node dist/index.js scan https://example.com
 ```
