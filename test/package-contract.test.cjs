@@ -56,6 +56,23 @@ test('release version synchronization check and MCP Registry preview succeed', a
   assert.equal(JSON.parse(preview.stdout).invocation, 'npx -y @qualitymax/qmax-mcp');
 });
 
+test('supported Node runtime is consistent across package metadata, CI, and release guidance', async () => {
+  const [packageJson, qualityWorkflow, releaseWorkflow, readme, releaseGuide] = await Promise.all([
+    readFile(path.join(root, 'package.json'), 'utf8').then(JSON.parse),
+    readFile(path.join(root, '.github', 'workflows', 'quality.yml'), 'utf8'),
+    readFile(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8'),
+    readFile(path.join(root, 'README.md'), 'utf8'),
+    readFile(path.join(root, 'docs', 'release.md'), 'utf8'),
+  ]);
+
+  assert.equal(packageJson.engines.node, '>=22.13.0');
+  assert.match(qualityWorkflow, /node: \["22\.13", "24"\]/);
+  assert.match(releaseWorkflow, /node: \["22\.13", "24"\]/);
+  assert.match(releaseWorkflow, /node-version: "22\.13"/);
+  assert.match(readme, /Node 22\.13\.0 or newer/);
+  assert.match(releaseGuide, /Node 22\.13 and 24/);
+});
+
 test('packed artifact contains only the supported public package contract and starts on Node', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-package-contract-'));
   t.after(() => rm(workspace, { recursive: true, force: true }));
