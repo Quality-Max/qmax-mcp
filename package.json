@@ -38,7 +38,7 @@
     "typescript-eslint": "^8.65.0"
   },
   "overrides": {
-    "@hono/node-server": "1.19.14"
+    "@hono/node-server": "2.0.10"
   },
   "engines": {
     "node": ">=22.13.0"

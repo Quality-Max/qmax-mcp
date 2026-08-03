@@ -7,7 +7,7 @@ Use this checklist for the exact release commit. Do not convert a pending contro
 - [ ] Run `npm run check` on the release commit and retain the CI URL.
 - [ ] Run `npm run demo -- --format json` and retain the generated receipt plus local artifacts.
 - [ ] Complete the three independent, approval-visible agent/client evaluations required by [QUA-1734](../../evals/agent-discovery/v1/RESULTS.md).
-- [ ] Resolve QUA-1730’s proxy endpoint/redirect hardening and verifiable human-approval blockers; do not describe `executionAcknowledged` as proof of a human decision.
+- [ ] Complete QUA-1730’s exact-release-candidate security review. The proxy must stay endpoint-pinned with redirects disabled, and code execution must use a digest-bound MCP human-approval elicitation rather than a caller assertion.
 - [ ] Confirm repository-admin controls from QUA-1731: branch protection and a protected `npm-publish` environment.
 - [ ] Verify the dated first-party sources in the [capability comparison](competitor-comparison.md), or update/remove affected wording.
 
