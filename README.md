@@ -156,7 +156,7 @@ Keep paid:
 
 ## Development
 
-The runtime requires Node 20.19.0 or newer.
+The runtime requires Node 22.13.0 or newer.
 
 ```bash
 npm install

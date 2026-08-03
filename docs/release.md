@@ -15,8 +15,8 @@ registry submission, or a repository visibility change.
    ```
 
 3. Build the package, run `npm pack --json --ignore-scripts`, and review the
-   resulting file allowlist. Install that tarball in clean Node 20.19, 22.13,
-   and 24 environments; `qmax-mcp --help` must start successfully in each.
+   resulting file allowlist. Install that tarball in clean Node 22.13 and 24
+   environments; `qmax-mcp --help` must start successfully in each.
 4. Review dependency changes, the SPDX license field and `LICENSE`,
    `SECURITY.md`, `server.json`, Smithery metadata, and the registry preview.
 5. Create a protected, immutable annotated tag named `v<package-version>` for
