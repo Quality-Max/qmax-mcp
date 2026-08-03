@@ -58,8 +58,9 @@ response provides only a content-free indicator and numeric Playwright counts.
 `scan_url` and `inspect_page` default-deny loopback, private, carrier-grade
 NAT, link-local, metadata, multicast, unspecified, benchmark, and documentation
 address ranges. Set `allowPrivateNetwork: true` only for deliberate local
-development testing; it permits only the exact initial private origin, never
-link-local or metadata destinations.
+development testing; it permits only an exact `localhost` or loopback-literal origin (for example,
+`http://127.0.0.1:3000`), never RFC1918/ULA, link-local, or metadata
+destinations.
 The same policy validates the initial target, DNS answers at request time,
 browser HTTP and WebSocket subrequests, checked links, and every followed
 redirect. Browser DNS resolution is still performed by the browser after the

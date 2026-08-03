@@ -22,7 +22,7 @@ same contract:
 - request approval before file mutation or supplied-code execution;
 - report evidence and unresolved failures, and never weaken assertions just to
   pass;
-- set `allowPrivateNetwork: true` only for deliberate local/private testing;
+- set `allowPrivateNetwork: true` only for deliberate loopback testing;
 - use hosted QualityMax only for a capability that needs it.
 
 MCP annotations are compatibility hints, so each client remains responsible for
@@ -56,7 +56,8 @@ redirecting a bearer credential. Do not add a proxy configuration, key, or
 ambient environment forwarding while that gate remains open.
 
 `allowPrivateNetwork: true` is explicit caller-side consent for deliberate
-local/private testing, not a server-side scope guarantee. The binding security
+loopback testing, not a server-side scope guarantee. RFC1918/ULA and other
+private-network targets remain denied. The binding security
 review also requires the server to enforce the narrow local-target scope before
 a release claim.
 

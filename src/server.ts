@@ -41,7 +41,7 @@ export function createLocalServer(): McpServer {
     {
       title: 'Scan URL',
       description:
-        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, performance, SEO, and security headers. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report.',
+        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, performance, SEO, and security headers. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -74,7 +74,7 @@ export function createLocalServer(): McpServer {
     {
       title: 'Inspect Page',
       description:
-        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. Does not intentionally modify the target or local filesystem.',
+        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. Does not intentionally modify the target or local filesystem. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

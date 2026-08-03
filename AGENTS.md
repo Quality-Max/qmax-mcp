@@ -9,8 +9,9 @@ unresolved failures.
 - Ask for approval before mutating files or executing supplied code. Do not
   weaken an assertion merely to make a test pass.
 - `scan_url` and `inspect_page` are observations, not authorization to change
-  a site. Local or private targets need the explicit `allowPrivateNetwork: true`
-  opt-in and should be limited to deliberate local development testing. Treat
+  a site. Local loopback targets need the explicit `allowPrivateNetwork: true`
+  opt-in and should be limited to deliberate local development testing; private
+  network targets remain denied. Treat
   that flag as caller-side consent, not proof of a server-side network scope.
 - Use hosted QualityMax only for a capability that requires it. Local tools do
   not require an account or an API key.

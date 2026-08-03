@@ -57,6 +57,10 @@ export function browserType(name = 'chromium'): BrowserType {
   return chromium;
 }
 
+export function browserContextOptions(viewport?: Viewport) {
+  return { viewport: viewport ?? DEFAULT_VIEWPORT, serviceWorkers: 'block' as const };
+}
+
 export async function withPage<T>(
   options: {
     url: string;
@@ -70,7 +74,7 @@ export async function withPage<T>(
   const initialUrl = await assertSafeNetworkUrl(options.url, { allowPrivateNetwork: options.allowPrivateNetwork });
   const browser = await browserType(options.browser).launch({ headless: !options.headed });
   try {
-    const context = await browser.newContext({ viewport: options.viewport ?? DEFAULT_VIEWPORT });
+    const context = await browser.newContext(browserContextOptions(options.viewport));
     await enforceBrowserNetworkPolicy(context, {
       allowPrivateNetwork: options.allowPrivateNetwork,
       privateNetworkOrigin: initialUrl.origin,
