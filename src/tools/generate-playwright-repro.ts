@@ -1,4 +1,4 @@
-import { writeTempFile } from './common';
+import { writeGeneratedOutput } from './generated-output';
 
 export type GeneratePlaywrightReproArgs = {
   url: string;
@@ -6,25 +6,24 @@ export type GeneratePlaywrightReproArgs = {
   finding?: Record<string, unknown>;
   testName?: string;
   outputPath?: string;
+  overwrite?: boolean;
 };
 
 export async function generatePlaywrightRepro(args: GeneratePlaywrightReproArgs) {
   const title = sanitizeTestName(args.testName || args.goal || findingMessage(args.finding) || 'QualityMax repro');
   const code = buildTest(args.url, title, args.goal, args.finding);
-  const filePath = args.outputPath ?? (await writeTempFile('qmax-repro', 'spec.ts', code));
-
-  if (args.outputPath) {
-    const { writeFile, mkdir } = await import('node:fs/promises');
-    const path = await import('node:path');
-    await mkdir(path.dirname(args.outputPath), { recursive: true });
-    await writeFile(args.outputPath, code, 'utf8');
-  }
+  const filePath = await writeGeneratedOutput({
+    content: code,
+    outputPath: args.outputPath,
+    overwrite: args.overwrite,
+  });
 
   return {
     filePath,
     code,
     assumptions: [
       'Generated locally from deterministic templates.',
+      'Written beneath .qmax-mcp/repros as a workspace-relative path.',
       'Review selectors before committing.',
       'Use inspect_page when a stronger role/data-testid locator is needed.',
     ],

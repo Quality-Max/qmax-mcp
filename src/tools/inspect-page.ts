@@ -1,16 +1,19 @@
 import { cssEscape, type Viewport, validateHttpUrl, withPage } from './common';
+import { safeUrlForDisplay } from './network-policy';
+import { redactSensitiveData } from './run-playwright-test';
 
 export type InspectPageArgs = {
   url: string;
   includeAccessibilityTree?: boolean;
   includeForms?: boolean;
   viewport?: Viewport;
+  allowPrivateNetwork?: boolean;
 };
 
 export async function inspectPage(args: InspectPageArgs) {
   const url = validateHttpUrl(args.url);
 
-  return await withPage({ url, viewport: args.viewport }, async (page) => {
+  return await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork }, async (page) => {
     const snapshot = await page.evaluate(
       ({ includeForms }) => {
         const text = (value: string | null | undefined) => (value || '').replace(/\s+/g, ' ').trim();
@@ -112,14 +115,17 @@ export async function inspectPage(args: InspectPageArgs) {
           })
         : undefined;
 
-    return {
+    return redactSensitiveData({
       ...snapshot,
+      url: safeUrlForDisplay(snapshot.url),
+      interactive: snapshot.interactive.map((item) => ({ ...item, href: item.href ? safeUrlForDisplay(item.href) : undefined })),
+      forms: snapshot.forms.map((form) => ({ ...form, action: safeUrlForDisplay(form.action) })),
       accessibilityTree,
       selectorGuidance: [
         'Prefer page.getByRole(role, { name }) when role and accessible name are present.',
         'Use data-testid/data-test/data-qa before generated classes or nth-child selectors.',
         `Escape CSS identifiers when using raw CSS selectors, e.g. ${cssEscape('example"value')}.`,
       ],
-    };
+    });
   });
 }

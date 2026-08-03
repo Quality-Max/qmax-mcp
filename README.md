@@ -52,6 +52,12 @@ Returns structured page context for agents:
 
 Generates a minimal Playwright `.spec.ts` from a URL, goal, or `scan_url` finding.
 
+Generated repros are written only under `.qmax-mcp/repros` in the active
+workspace. Supply a relative `outputPath` such as `login/repro.spec.ts`; an
+existing file requires the explicit `overwrite: true` decision. See the
+[MCP safety contract](docs/mcp-safety.md) for copy-paste examples and the
+network, filesystem, and code-execution approval boundaries for every tool.
+
 The first version is deterministic template generation. BYO LLM and hosted QualityMax generation can be added without changing the tool contract.
 
 ### `run_playwright_test`

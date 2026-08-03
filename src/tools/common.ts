@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from 'playwright';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from 'playwright';
+import { assertSafeNetworkUrl, type NetworkPolicyOptions } from './network-policy';
 
 export type Viewport = {
   width: number;
@@ -62,18 +63,47 @@ export async function withPage<T>(
     viewport?: Viewport;
     browser?: 'chromium' | 'firefox' | 'webkit';
     headed?: boolean;
+    allowPrivateNetwork?: boolean;
   },
   fn: (page: Page, browser: Browser) => Promise<T>
 ): Promise<T> {
+  const initialUrl = await assertSafeNetworkUrl(options.url, { allowPrivateNetwork: options.allowPrivateNetwork });
   const browser = await browserType(options.browser).launch({ headless: !options.headed });
   try {
-    const page = await browser.newPage({ viewport: options.viewport ?? DEFAULT_VIEWPORT });
+    const context = await browser.newContext({ viewport: options.viewport ?? DEFAULT_VIEWPORT });
+    await enforceBrowserNetworkPolicy(context, {
+      allowPrivateNetwork: options.allowPrivateNetwork,
+      privateNetworkOrigin: initialUrl.origin,
+    });
+    const page = await context.newPage();
     page.setDefaultTimeout(15_000);
     await page.goto(validateHttpUrl(options.url), { waitUntil: 'domcontentloaded', timeout: 30_000 });
     return await fn(page, browser);
   } finally {
     await browser.close();
   }
+}
+
+export async function enforceBrowserNetworkPolicy(
+  context: Pick<BrowserContext, 'route' | 'routeWebSocket'>,
+  options: NetworkPolicyOptions
+): Promise<void> {
+  await context.route('**/*', async (route) => {
+    try {
+      await assertSafeNetworkUrl(route.request().url(), options);
+      await route.continue();
+    } catch {
+      await route.abort('blockedbyclient');
+    }
+  });
+  await context.routeWebSocket('**/*', async (webSocket) => {
+    try {
+      await assertSafeNetworkUrl(webSocket.url(), options);
+      webSocket.connectToServer();
+    } catch {
+      await webSocket.close({ code: 1008, reason: 'Blocked by local safety policy.' });
+    }
+  });
 }
 
 export async function writeTempFile(prefix: string, extension: string, content: string): Promise<string> {
