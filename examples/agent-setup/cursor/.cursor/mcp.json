@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "qmax": {
+      "command": "npx",
+      "args": ["-y", "@qualitymax/qmax-mcp"]
+    }
+  }
+}

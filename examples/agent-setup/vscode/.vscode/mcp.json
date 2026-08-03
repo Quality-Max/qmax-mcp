@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "qmax": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@qualitymax/qmax-mcp"]
+    }
+  }
+}
