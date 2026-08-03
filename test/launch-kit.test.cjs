@@ -24,6 +24,8 @@ test('launch kit keeps reproducible proof, safety, comparison, and disclosure as
     'demo/run.mjs',
     'demo/record.mjs',
     'demo/scan-to-repro.cast',
+    'demo/quality-receipt.example.json',
+    'demo/quality-receipt.example.md',
     'demo/README.md',
     'docs/launch/architecture.svg',
     'docs/launch/competitor-comparison.md',
@@ -31,13 +33,17 @@ test('launch kit keeps reproducible proof, safety, comparison, and disclosure as
   ];
   await Promise.all(assets.map((asset) => access(path.join(root, asset))));
 
-  const [demo, comparison, checklist] = await Promise.all([
+  const [demo, comparison, checklist, jsonReceipt, markdownReceipt] = await Promise.all([
     readFile(path.join(root, 'demo/README.md'), 'utf8'),
     readFile(path.join(root, 'docs/launch/competitor-comparison.md'), 'utf8'),
     readFile(path.join(root, 'docs/launch/launch-checklist.md'), 'utf8'),
+    readFile(path.join(root, 'demo/quality-receipt.example.json'), 'utf8'),
+    readFile(path.join(root, 'demo/quality-receipt.example.md'), 'utf8'),
   ]);
   assert.match(demo, /dependency-free local fixture/i);
   assert.match(demo, /not a verifiable record of a human client approval/i);
+  assert.equal(JSON.parse(jsonReceipt).execution.expectedStatus, 'failed');
+  assert.match(markdownReceipt, /Demo checkout calculation failed/);
   assert.match(comparison, /Last verified: \*\*2026-08-03\*\*/);
   for (const competitor of ['TestSprite', 'BrowserStack', 'mabl', 'Momentic']) {
     assert.match(comparison, new RegExp(competitor));

@@ -11,7 +11,7 @@ npm run demo:record
 
 The one-time Playwright install downloads the browser used by the local test runner. The script starts an ephemeral loopback server, calls `scan_url` with its narrow `allowPrivateNetwork: true` opt-in, generates a console-error repro below `.qmax-mcp/repros`, then executes that repro on Chromium. The expected test result is **failed**, because the fixture retains the intentional error. This is useful evidence that the error is reproducible, not a release pass.
 
-The JSON mode is the machine-readable quality receipt. It identifies the exact scan findings, generated repro path, structured execution summary, and the approval limitation. Generated files and Playwright artifacts remain under `.qmax-mcp/` for local inspection and are not committed.
+The JSON mode is the machine-readable quality receipt. It identifies the exact scan findings, generated repro path, structured execution summary, and the approval limitation. Stable receipt shapes are committed as [Markdown](quality-receipt.example.md) and [JSON](quality-receipt.example.json) examples; generate current evidence from the release candidate rather than treating those examples as a fresh run. Generated files and Playwright artifacts remain under `.qmax-mcp/` for local inspection and are not committed.
 
 `npm run demo:record` refreshes the checked-in [short terminal recording source](scan-to-repro.cast) from the same tested flow. It is an [asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) file; replay it with a compatible asciicast player. Regenerate it only from the release candidate whose behavior it depicts.
 

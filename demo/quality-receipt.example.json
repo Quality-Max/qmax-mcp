@@ -1,0 +1,27 @@
+{
+  "receiptVersion": 1,
+  "kind": "qualitymax-reproducible-demo",
+  "target": "dependency-free local fixture on 127.0.0.1 (ephemeral port)",
+  "scan": {
+    "checks": ["console"],
+    "findingCount": 1,
+    "findings": [
+      {
+        "severity": "high",
+        "category": "console",
+        "message": "error: Demo checkout calculation failed",
+        "suggestion": "Fix runtime errors and warnings before relying on generated tests."
+      }
+    ]
+  },
+  "repro": {
+    "generatedPath": ".qmax-mcp/repros/<generated>.spec.ts",
+    "deterministic": true
+  },
+  "execution": {
+    "status": "failed",
+    "expectedStatus": "failed",
+    "approvalEvidence": "executionAcknowledged: true is a caller assertion, not independent proof of human approval."
+  },
+  "limitation": "The fixture deliberately fails. This proves the scan-to-repro path but does not resolve QUA-1730's client-verifiable human-approval requirement."
+}
