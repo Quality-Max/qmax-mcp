@@ -21,7 +21,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@playwright/test": "^1.61.0",
-    "commander": "^12.0.0",
+    "commander": "^15.0.0",
     "playwright": "^1.61.0",
     "zod": "^4.4.3"
   },
