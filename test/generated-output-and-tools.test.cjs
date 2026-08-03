@@ -8,7 +8,7 @@ const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const { generatePlaywrightRepro } = require('../dist/tools/generate-playwright-repro.js');
 const { createLocalServer } = require('../dist/server.js');
 const { createChildEnvironment, redactSensitiveText, runCommand, safeRunnerStream } = require('../dist/tools/run-playwright-test.js');
-const { enforceBrowserNetworkPolicy } = require('../dist/tools/common.js');
+const { browserContextOptions, enforceBrowserNetworkPolicy } = require('../dist/tools/common.js');
 const { assertSafeNetworkUrl, safeFetch } = require('../dist/tools/network-policy.js');
 const { renderClients } = require('../dist/clients.js');
 
@@ -161,6 +161,9 @@ test('one network policy blocks private destinations across DNS, redirects, and 
       'private.example': [{ address: '10.0.0.8', family: 4 }],
       'rebind.example': [{ address: '93.184.216.34', family: 4 }, { address: '127.0.0.1', family: 4 }],
       'v6.example': [{ address: '::1', family: 6 }],
+      'expanded-loopback.example': [{ address: '0:0:0:0:0:0:0:1', family: 6 }],
+      'expanded-mapped-private.example': [{ address: '0:0:0:0:0:ffff:a00:8', family: 6 }],
+      localhost: [{ address: '127.0.0.1', family: 4 }, { address: '::1', family: 6 }],
     };
     return addresses[hostname] || [];
   };
@@ -171,11 +174,29 @@ test('one network policy blocks private destinations across DNS, redirects, and 
   await assert.rejects(() => assertSafeNetworkUrl('https://private.example/', { lookup: resolve }), /not permitted/);
   await assert.rejects(() => assertSafeNetworkUrl('https://rebind.example/', { lookup: resolve }), /not permitted/);
   await assert.rejects(() => assertSafeNetworkUrl('https://v6.example/', { lookup: resolve }), /not permitted/);
+  await assert.rejects(() => assertSafeNetworkUrl('https://expanded-loopback.example/', { lookup: resolve }), /not permitted/);
+  await assert.rejects(() => assertSafeNetworkUrl('https://expanded-mapped-private.example/', { lookup: resolve }), /not permitted/);
   await assert.rejects(() => assertSafeNetworkUrl('http://[::ffff:7f00:1]/', { lookup: resolve }), /not permitted/);
-  for (const linkLocal of ['fe80::1', 'fe90::1', 'fea0::1', 'febf::1']) {
+  for (const expandedAlias of ['0:0:0:0:0:0:0:0', '0:0:0:0:0:0:0:1', '0:0:0:0:0:ffff:7f00:1', '0:0:0:0:0:ffff:a00:8', '64:ff9b:0:0:0:0:a00:8', '2002:a00:8::', '2002:7f00:1::']) {
+    await assert.rejects(() => assertSafeNetworkUrl(`http://[${expandedAlias}]/`, { lookup: resolve }), /not permitted/);
+  }
+  for (const linkLocal of ['fe80::1', 'fe90::1', 'fea0::1', 'febf::1', 'fec0::1', 'fedf::1', 'feff::1']) {
     await assert.rejects(() => assertSafeNetworkUrl(`http://[${linkLocal}]/`, { lookup: resolve }), /not permitted/);
   }
-  await assertSafeNetworkUrl('https://private.example/', { allowPrivateNetwork: true, lookup: resolve });
+  await assert.rejects(() => assertSafeNetworkUrl('https://private.example/', { allowPrivateNetwork: true, lookup: resolve }), /not permitted/);
+  await assert.rejects(() => assertSafeNetworkUrl('https://v6.example/', { allowPrivateNetwork: true, lookup: resolve }), /not permitted/);
+  for (const reservedAddress of ['0.0.0.0', '10.0.0.8', '100.64.0.1', '172.16.0.1', '192.168.0.1', '224.0.0.1', '::', 'fc00::1', 'fd00::1', 'fec0::1']) {
+    const target = reservedAddress.includes(':') ? `http://[${reservedAddress}]/` : `http://${reservedAddress}/`;
+    await assert.rejects(
+      () => assertSafeNetworkUrl(target, { allowPrivateNetwork: true, lookup: resolve }),
+      /not permitted/
+    );
+  }
+  await assertSafeNetworkUrl('http://127.0.0.1:3000/', { allowPrivateNetwork: true, lookup: resolve });
+  await assertSafeNetworkUrl('http://[::1]:3000/', { allowPrivateNetwork: true, lookup: resolve });
+  await assertSafeNetworkUrl('http://[::ffff:7f00:1]:3000/', { allowPrivateNetwork: true, lookup: resolve });
+  await assertSafeNetworkUrl('http://[0:0:0:0:0:ffff:7f00:1]:3000/', { allowPrivateNetwork: true, lookup: resolve });
+  await assertSafeNetworkUrl('http://localhost:3000/', { allowPrivateNetwork: true, lookup: resolve });
   await assert.rejects(() => assertSafeNetworkUrl('https://name:password@public.example/', { lookup: resolve }), /credentials/);
 
   const originalFetch = global.fetch;
@@ -186,6 +207,21 @@ test('one network policy blocks private destinations across DNS, redirects, and 
   };
   try {
     await assert.rejects(() => safeFetch('https://public.example/', {}, { lookup: resolve }), /not permitted/);
+    assert.equal(fetchCalls, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    return new Response('', { status: 302, headers: { location: 'http://127.0.0.1:3001/private' } });
+  };
+  try {
+    await assert.rejects(
+      () => safeFetch('http://127.0.0.1:3000/', {}, { allowPrivateNetwork: true, lookup: resolve }),
+      /not permitted/
+    );
     assert.equal(fetchCalls, 1);
   } finally {
     global.fetch = originalFetch;
@@ -218,4 +254,23 @@ test('one network policy blocks private destinations across DNS, redirects, and 
   const privateSocket = { closed: false, url: () => 'ws://private.example/socket', connectToServer: () => { throw new Error('must not connect'); }, close: async () => { privateSocket.closed = true; } };
   await webSocketHandler(privateSocket);
   assert.equal(privateSocket.closed, true);
+
+  let loopbackHandler;
+  await enforceBrowserNetworkPolicy(
+    {
+      route: async (_pattern, registeredHandler) => { loopbackHandler = registeredHandler; },
+      routeWebSocket: async () => {},
+    },
+    { allowPrivateNetwork: true, privateNetworkOrigin: 'http://127.0.0.1:3000', lookup: resolve }
+  );
+  const approvedLoopbackRequest = { continued: false, aborted: false, request: () => ({ url: () => 'http://127.0.0.1:3000/app.js' }), continue: async () => { approvedLoopbackRequest.continued = true; }, abort: async () => { approvedLoopbackRequest.aborted = true; } };
+  const otherPortRequest = { continued: false, aborted: false, request: () => ({ url: () => 'http://127.0.0.1:3001/app.js' }), continue: async () => { otherPortRequest.continued = true; }, abort: async () => { otherPortRequest.aborted = true; } };
+  const loopbackAliasRequest = { continued: false, aborted: false, request: () => ({ url: () => 'http://localhost:3000/app.js' }), continue: async () => { loopbackAliasRequest.continued = true; }, abort: async () => { loopbackAliasRequest.aborted = true; } };
+  await loopbackHandler(approvedLoopbackRequest);
+  await loopbackHandler(otherPortRequest);
+  await loopbackHandler(loopbackAliasRequest);
+  assert.deepEqual([approvedLoopbackRequest.continued, approvedLoopbackRequest.aborted], [true, false]);
+  assert.deepEqual([otherPortRequest.continued, otherPortRequest.aborted], [false, true]);
+  assert.deepEqual([loopbackAliasRequest.continued, loopbackAliasRequest.aborted], [false, true]);
+  assert.equal(browserContextOptions().serviceWorkers, 'block');
 });
