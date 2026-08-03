@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="920" height="270" viewBox="0 0 920 270" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="330" viewBox="0 0 1000 330" role="img" aria-labelledby="title desc">
   <title id="title">QualityMax local-first architecture</title>
   <desc id="desc">A coding agent uses qmax-mcp locally for four tools; an explicit optional proxy connects to hosted QualityMax.</desc>
   <style>
@@ -11,21 +11,22 @@
     .label { font-size: 20px; font-weight: 700; }
   </style>
   <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#415a77"/></marker></defs>
-  <rect x="30" y="83" width="210" height="105" class="box"/>
-  <text x="135" y="122" text-anchor="middle" class="label">Coding agent</text>
-  <text x="135" y="151" text-anchor="middle" class="small">Claude · Cursor · Codex · VS Code</text>
-  <text x="135" y="174" text-anchor="middle" class="small">reviews requested actions</text>
-  <path d="M240 135 H330" class="arrow"/>
-  <rect x="335" y="35" width="265" height="205" class="local"/>
-  <text x="467" y="75" text-anchor="middle" class="label">qmax-mcp (local)</text>
-  <text x="467" y="110" text-anchor="middle" class="small">scan_url · inspect_page</text>
-  <text x="467" y="138" text-anchor="middle" class="small">generate_playwright_repro</text>
-  <text x="467" y="166" text-anchor="middle" class="small">run_playwright_test</text>
-  <text x="467" y="208" text-anchor="middle" class="small">No account required</text>
-  <path d="M600 135 H690" class="arrow"/>
-  <rect x="695" y="83" width="195" height="105" class="cloud"/>
-  <text x="792" y="122" text-anchor="middle" class="label">Hosted QualityMax</text>
-  <text x="792" y="151" text-anchor="middle" class="small">explicit proxy only</text>
-  <text x="792" y="174" text-anchor="middle" class="small">account-backed workflows</text>
-  <text x="650" y="252" text-anchor="middle" class="small">Optional boundary — configure only when hosted capability is needed</text>
+  <rect x="30" y="80" width="260" height="150" class="box"/>
+  <text x="160" y="120" text-anchor="middle" class="label">Coding agent</text>
+  <text x="160" y="153" text-anchor="middle" class="small">Claude · Cursor</text>
+  <text x="160" y="177" text-anchor="middle" class="small">Codex · VS Code</text>
+  <text x="160" y="207" text-anchor="middle" class="small">reviews requested actions</text>
+  <path d="M290 155 H345" class="arrow"/>
+  <rect x="350" y="35" width="290" height="230" class="local"/>
+  <text x="495" y="80" text-anchor="middle" class="label">qmax-mcp (local)</text>
+  <text x="495" y="120" text-anchor="middle" class="small">scan_url · inspect_page</text>
+  <text x="495" y="150" text-anchor="middle" class="small">generate_playwright_repro</text>
+  <text x="495" y="180" text-anchor="middle" class="small">run_playwright_test</text>
+  <text x="495" y="225" text-anchor="middle" class="small">No account required</text>
+  <path d="M640 155 H715" class="arrow"/>
+  <rect x="720" y="80" width="250" height="150" class="cloud"/>
+  <text x="845" y="120" text-anchor="middle" class="label">QualityMax Cloud</text>
+  <text x="845" y="157" text-anchor="middle" class="small">explicit proxy only</text>
+  <text x="845" y="187" text-anchor="middle" class="small">account-backed workflows</text>
+  <text x="680" y="305" text-anchor="middle" class="small">Optional boundary — configure only when hosted capability is needed</text>
 </svg>
