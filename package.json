@@ -8,10 +8,11 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test test/*.test.cjs",
+    "lint": "eslint src",
+    "test": "npm run build && node --test test/*.test.cjs tests/*.test.js",
+    "check": "npm run lint && npm test",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
-    "test": "npm run build && node --test tests/*.test.js",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
@@ -23,8 +24,10 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "eslint": "^9.39.5",
     "ts-node": "^10.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.65.0"
   },
   "engines": {
     "node": ">=18"
