@@ -1,4 +1,6 @@
 import { writeTempFile, type Finding, type Viewport, scoreFromFindings, validateHttpUrl, withPage } from './common';
+import { safeFetch, safeUrlForDisplay } from './network-policy';
+import { redactSensitiveData } from './run-playwright-test';
 
 const DEFAULT_CHECKS = ['console', 'links', 'accessibility', 'performance', 'seo', 'security_headers'];
 
@@ -8,10 +10,12 @@ export type ScanUrlArgs = {
   maxLinks?: number;
   screenshot?: boolean;
   viewport?: Viewport;
+  allowPrivateNetwork?: boolean;
 };
 
 export async function scanUrl(args: ScanUrlArgs) {
   const url = validateHttpUrl(args.url);
+  const displayUrl = safeUrlForDisplay(url);
   const checks = new Set((args.checks && args.checks.length ? args.checks : DEFAULT_CHECKS).map((item) => item.toLowerCase()));
   const findings: Finding[] = [];
   const consoleMessages: Array<{ type: string; text: string; location?: unknown }> = [];
@@ -19,7 +23,7 @@ export async function scanUrl(args: ScanUrlArgs) {
   let mainHeaders: Record<string, string> = {};
   let screenshotPath: string | undefined;
 
-  await withPage({ url, viewport: args.viewport }, async (page) => {
+  await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork }, async (page) => {
     page.on('console', (msg) => {
       if (['error', 'warning'].includes(msg.type())) {
         consoleMessages.push({
@@ -51,7 +55,7 @@ export async function scanUrl(args: ScanUrlArgs) {
           category: 'console',
           message: `${message.type}: ${message.text}`,
           evidence: message.location,
-          repro: `1. Open ${url}\n2. Open DevTools → Console\n3. Observe: ${message.text}`,
+          repro: `1. Open ${displayUrl}\n2. Open DevTools → Console\n3. Observe: ${message.text}`,
           suggestion: 'Fix runtime errors and warnings before relying on generated tests.',
         });
       }
@@ -60,15 +64,23 @@ export async function scanUrl(args: ScanUrlArgs) {
           severity: 'medium',
           category: 'network',
           message: `Request failed: ${failed.failure ?? 'unknown error'}`,
-          url: failed.url,
-          repro: `1. Open ${url}\n2. Open DevTools → Network\n3. Observe request to ${failed.url} fails: ${failed.failure ?? 'unknown error'}`,
+          url: safeUrlForDisplay(failed.url),
+          repro: `1. Open ${displayUrl}\n2. Open DevTools → Network\n3. Observe request to ${safeUrlForDisplay(failed.url)} fails: ${failed.failure ?? 'unknown error'}`,
           suggestion: 'Verify the asset or API route is reachable in the tested environment.',
         });
       }
     }
 
     if (checks.has('links')) {
-      findings.push(...(await checkLinks(pageUrl(url), await page.locator('a[href]').evaluateAll((els) => els.map((el) => (el as HTMLAnchorElement).href)), args.maxLinks ?? 50)));
+      findings.push(
+        ...(await checkLinks(
+          pageUrl(url),
+          await page.locator('a[href]').evaluateAll((els) => els.map((el) => (el as HTMLAnchorElement).href)),
+          args.maxLinks ?? 50,
+          Boolean(args.allowPrivateNetwork),
+          new URL(url).origin
+        ))
+      );
     }
 
     if (checks.has('accessibility')) {
@@ -142,8 +154,8 @@ export async function scanUrl(args: ScanUrlArgs) {
         findings.push({
           ...issue,
           repro: issue.selector
-            ? `1. Open ${url}\n2. Inspect \`${issue.selector}\`\n3. Note: ${issue.message}`
-            : `1. Open ${url}\n2. ${issue.message}`,
+            ? `1. Open ${displayUrl}\n2. Inspect \`${issue.selector}\`\n3. Note: ${issue.message}`
+            : `1. Open ${displayUrl}\n2. ${issue.message}`,
         });
       }
     }
@@ -159,7 +171,7 @@ export async function scanUrl(args: ScanUrlArgs) {
           severity: 'low',
           category: 'seo',
           message: 'Page title is missing or very short.',
-          repro: `curl -s ${url} | grep -i '<title>'`,
+          repro: `curl -s ${displayUrl} | grep -i '<title>'`,
           suggestion: 'Add a descriptive <title> (10+ chars).',
         });
       }
@@ -168,7 +180,7 @@ export async function scanUrl(args: ScanUrlArgs) {
           severity: 'low',
           category: 'seo',
           message: 'Meta description is missing or very short.',
-          repro: `curl -s ${url} | grep -i '<meta name="description"'`,
+          repro: `curl -s ${displayUrl} | grep -i '<meta name="description"'`,
           suggestion: 'Add a <meta name="description"> (50–160 chars).',
         });
       }
@@ -191,14 +203,14 @@ export async function scanUrl(args: ScanUrlArgs) {
           category: 'performance',
           message: `DOM content loaded in ${perf.domContentLoadedMs}ms.`,
           evidence: perf,
-          repro: `1. Open ${url} with DevTools → Performance\n2. Reload and read DOMContentLoaded (${perf.domContentLoadedMs}ms)`,
+          repro: `1. Open ${displayUrl} with DevTools → Performance\n2. Reload and read DOMContentLoaded (${perf.domContentLoadedMs}ms)`,
           suggestion: 'Investigate render-blocking resources and slow server responses.',
         });
       }
     }
 
     if (checks.has('security_headers')) {
-      findings.push(...checkSecurityHeaders(mainHeaders, url));
+      findings.push(...checkSecurityHeaders(mainHeaders, displayUrl));
     }
 
     if (args.screenshot) {
@@ -209,11 +221,11 @@ export async function scanUrl(args: ScanUrlArgs) {
   });
 
   return {
-    url,
+    url: displayUrl,
     score: scoreFromFindings(findings),
     checks: Array.from(checks),
     findingCount: findings.length,
-    findings,
+    findings: redactSensitiveData(findings) as Finding[],
     screenshotPath,
   };
 }
@@ -222,23 +234,31 @@ function pageUrl(url: string): URL {
   return new URL(url);
 }
 
-async function checkLinks(baseUrl: URL, hrefs: string[], maxLinks: number): Promise<Finding[]> {
+async function checkLinks(
+  baseUrl: URL,
+  hrefs: string[],
+  maxLinks: number,
+  allowPrivateNetwork: boolean,
+  privateNetworkOrigin: string
+): Promise<Finding[]> {
   const findings: Finding[] = [];
   const unique = Array.from(new Set(hrefs))
     .filter((href) => href.startsWith('http://') || href.startsWith('https://'))
     .slice(0, Math.max(0, maxLinks));
 
-  await Promise.all(
-    unique.map(async (href) => {
+  await withConcurrency(unique, 5, async (href) => {
       try {
         const url = new URL(href, baseUrl);
-        const res = await fetch(url, { method: 'HEAD', redirect: 'follow' }).catch(() => fetch(url, { method: 'GET', redirect: 'follow' }));
+        const policy = { allowPrivateNetwork, privateNetworkOrigin };
+        const res = await safeFetch(url, { method: 'HEAD' }, policy).catch(() =>
+          safeFetch(url, { method: 'GET' }, policy)
+        );
         if (res.status >= 400) {
           findings.push({
             severity: res.status >= 500 ? 'high' : 'medium',
             category: 'links',
             message: `Link returned HTTP ${res.status}.`,
-            url: url.toString(),
+            url: safeUrlForDisplay(url),
             suggestion: 'Update, redirect, or remove the broken link.',
           });
         }
@@ -246,14 +266,25 @@ async function checkLinks(baseUrl: URL, hrefs: string[], maxLinks: number): Prom
         findings.push({
           severity: 'medium',
           category: 'links',
-          message: `Link check failed: ${err instanceof Error ? err.message : String(err)}`,
-          url: href,
+          message: `Link check failed: ${err instanceof Error ? err.message : 'network request failed'}`,
+          url: safeUrlForDisplay(href),
         });
+      }
+    });
+
+  return findings;
+}
+
+async function withConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const item = items[next++];
+        await worker(item);
       }
     })
   );
-
-  return findings;
 }
 
 function checkSecurityHeaders(headers: Record<string, string>, url: string): Finding[] {

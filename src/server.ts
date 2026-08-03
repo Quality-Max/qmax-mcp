@@ -29,7 +29,7 @@ function textResult(text: string) {
   };
 }
 
-export async function runLocalServer(): Promise<void> {
+export function createLocalServer(): McpServer {
   const server = new McpServer({
     name: 'qmax-mcp',
     version: '0.1.0',
@@ -40,12 +40,19 @@ export async function runLocalServer(): Promise<void> {
     {
       title: 'Scan URL',
       description:
-        'Run deterministic local QA checks against a URL: console errors, broken links, accessibility, performance, SEO, and security headers. Set format:"markdown" for a shareable graded report.',
+        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, performance, SEO, and security headers. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report.',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         url: z.string().url(),
         checks: z.array(z.string()).optional(),
         maxLinks: z.number().int().min(0).max(250).optional(),
         screenshot: z.boolean().optional(),
+        allowPrivateNetwork: z.boolean().optional(),
         format: z.enum(['json', 'markdown']).optional(),
         viewport: z
           .object({
@@ -66,11 +73,18 @@ export async function runLocalServer(): Promise<void> {
     {
       title: 'Inspect Page',
       description:
-        'Return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates for a page.',
+        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. Does not intentionally modify the target or local filesystem.',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         url: z.string().url(),
         includeAccessibilityTree: z.boolean().optional(),
         includeForms: z.boolean().optional(),
+        allowPrivateNetwork: z.boolean().optional(),
         viewport: z
           .object({
             width: z.number().int().min(320).max(3840),
@@ -86,13 +100,21 @@ export async function runLocalServer(): Promise<void> {
     'generate_playwright_repro',
     {
       title: 'Generate Playwright Repro',
-      description: 'Generate a minimal Playwright test from a scan finding, URL, or plain-English goal.',
+      description:
+        'Generate a minimal Playwright test from a scan finding, URL, or plain-English goal and write it below the approved workspace directory .qmax-mcp/repros. outputPath must be relative; existing files require overwrite:true after review. No outbound network request is made by generation.',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
       inputSchema: {
         url: z.string().url(),
         goal: z.string().optional(),
         finding: z.record(z.string(), z.unknown()).optional(),
         testName: z.string().optional(),
         outputPath: z.string().optional(),
+        overwrite: z.boolean().optional(),
       },
     },
     async (args) => jsonResult(await generatePlaywrightRepro(args))
@@ -102,7 +124,14 @@ export async function runLocalServer(): Promise<void> {
     'run_playwright_test',
     {
       title: 'Run Playwright Test',
-      description: 'Run one local Playwright test file or inline test and return structured output.',
+      description:
+        'Execute supplied local Playwright code or a local test file. This is a code-execution and artifact-writing boundary: clients must obtain explicit approval before calling it. The runner may make outbound network requests requested by the test.',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
       inputSchema: {
         testPath: z.string().optional(),
         code: z.string().optional(),
@@ -110,11 +139,19 @@ export async function runLocalServer(): Promise<void> {
         browser: z.enum(['chromium', 'firefox', 'webkit']).optional(),
         headed: z.boolean().optional(),
         timeoutMs: z.number().int().min(1000).max(300000).optional(),
+        wallClockTimeoutMs: z.number().int().min(1000).max(330000).optional(),
+        allowedEnv: z.record(z.string(), z.string()).optional(),
+        executionAcknowledged: z.literal(true).describe('Required acknowledgement before supplied test code is executed.'),
       },
     },
-    async (args) => jsonResult(await runPlaywrightTest(args))
+    async (args, extra) => jsonResult(await runPlaywrightTest(args, { signal: extra.signal }))
   );
 
+  return server;
+}
+
+export async function runLocalServer(): Promise<void> {
+  const server = createLocalServer();
   process.stderr.write('qmax-mcp: local QA MCP server running over stdio\n');
   await server.connect(new StdioServerTransport());
 }

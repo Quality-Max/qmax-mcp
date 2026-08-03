@@ -19,7 +19,7 @@ program
   .option('--clients', 'Print copy-paste MCP client configs and exit')
   .action(async (options: { clients?: boolean }) => {
     if (options.clients) {
-      printClients(process.env['QUALITYMAX_API_KEY']);
+      printClients();
       return;
     }
 

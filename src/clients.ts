@@ -1,10 +1,8 @@
 const PACKAGE_NAME = '@qualitymax/qmax-mcp';
 const SETTINGS_URL = 'https://app.qualitymax.io/settings/api-tokens';
 
-export function printClients(apiKey?: string): void {
-  const key = apiKey ?? '<your-api-key>';
-
-  console.log(`
+export function renderClients(): string {
+  return `
 QualityMax QA MCP — client configs
 
 Local-first mode runs deterministic QA tools on your machine. No QualityMax
@@ -62,9 +60,14 @@ Get your API key at ${SETTINGS_URL}
     "qualitymax-hosted": {
       "command": "npx",
       "args": ["-y", "${PACKAGE_NAME}", "proxy"],
-      "env": { "QUALITYMAX_API_KEY": "${key}" }
+      "env": { "QUALITYMAX_API_KEY": "<your-api-key>" }
     }
   }
 }
-`);
+`;
+}
+
+/** Client setup is documentation, never a way to display a configured credential. */
+export function printClients(): void {
+  console.log(renderClients());
 }
