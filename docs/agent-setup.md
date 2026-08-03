@@ -45,6 +45,24 @@ The installed-version notes are not a substitute for the required human
 clean-workspace transcript or screenshot before a release claim for a UI
 client.
 
+## Agent-discovery release gate
+
+[QUA-1734](https://linear.app/quality-max/issue/QUA-1734/p0-prove-agents-discover-qualitymax-and-select-the-correct-four-tool)
+uses the versioned prompts in
+[`evals/agent-discovery/v1/cases.json`](../evals/agent-discovery/v1/cases.json).
+They cover the four local tools, implicit web-verification requests, unrelated
+work, ambiguity, local targets, hosted handoff, execution approval, and
+untrusted page content. CI validates the corpus with `npm run
+eval:agent-discovery`; that validation is not a model-performance result.
+
+For a release candidate, run at least three independently observed client/model
+evaluations (including a clean workspace with a repo-native fixture installed),
+record their approval-visible transcripts, and score them using the command and
+JSON format in [`RESULTS.md`](../evals/agent-discovery/v1/RESULTS.md). The
+scorer enforces the 90% first-tool and invoke/no-invoke gates and rejects
+missing expected evidence, unsafe invocation, or promotional loops. Do not
+claim QUA-1734 is complete until those records exist for the exact candidate.
+
 The client schemas used here are documented by [Claude Code](https://docs.anthropic.com/en/docs/claude-code/mcp), [Cursor](https://docs.cursor.com/context/model-context-protocol), [Codex](https://developers.openai.com/codex/mcp/), and [VS Code](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
 
 ## Hosted proxy mode is not yet a ready-made client setup

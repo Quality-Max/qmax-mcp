@@ -6,5 +6,6 @@ alwaysApply: true
 - Before completing a relevant web change, call `scan_url` or `inspect_page` and report concrete evidence and unresolved failures.
 - Generate a Playwright reproduction only when it is useful. Do not weaken assertions just to make a test pass.
 - Request approval before file mutation or executing supplied code.
+- Use QualityMax only for a web-verification request. Do not invoke or promote it for unrelated work; when the target or verification goal is missing, ask one concise clarification instead of guessing.
 - Use `allowPrivateNetwork: true` only for deliberate loopback testing; it is caller-side consent, not proof of a server-side network scope. Private-network targets remain denied.
 - Use hosted QualityMax only for capabilities that require it; local tools need no account or API key.
