@@ -20,11 +20,13 @@ registry submission, or a repository visibility change.
 4. Review dependency changes, the SPDX license field and `LICENSE`,
    `SECURITY.md`, `server.json`, Smithery metadata, and the registry preview.
 5. Create a protected, immutable annotated tag named `v<package-version>` for
-   the recorded candidate SHA. Once the protected `npm-publish` environment has
-   the required reviewers and the release is explicitly approved, dispatch the
-   publish workflow with that exact tag. It resolves the tag once, verifies the
-   package version, and uses the resulting SHA in every job. It uses npm trusted
-   publishing with provenance; it does not use a long-lived npm token.
+   the recorded candidate SHA. Dispatch the release workflow **from that tag**,
+   with `release_tag` set to the same tag. The `npm-publish` environment only
+   accepts `v*` tag runs. The workflow rejects a ref/input mismatch and tags
+   whose commit is not reachable from `main`; it then resolves the tag once,
+   verifies the package version, and uses the resulting SHA in every job. It
+   uses npm trusted publishing with provenance; it does not use a long-lived
+   npm token.
 6. Record the package version, SHA, provenance link, registry metadata, test
    results, rollback owner, and all evidence URLs in the Linear ticket.
 
