@@ -31,7 +31,7 @@
     "ajv-formats": "^3.0.1",
     "eslint": "^10.8.0",
     "ts-node": "^10.0.0",
-    "typescript": "^5.0.0",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.65.0"
   },
   "overrides": {
