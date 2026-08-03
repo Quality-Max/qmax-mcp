@@ -101,7 +101,12 @@ The `scan_url` MCP tool returns JSON by default (for agents); pass `format: "mar
 
 ## Client Configs
 
-Print copy-paste configs:
+Ready-made, repository-native configurations and agent instructions for Claude
+Code, Cursor, Codex, VS Code, and other stdio clients are in the [agent setup
+guide](docs/agent-setup.md). It also separates no-account local mode from the
+explicit hosted proxy.
+
+Print the local and hosted configuration templates from the CLI:
 
 ```bash
 npx -y @qualitymax/qmax-mcp --clients
@@ -128,7 +133,7 @@ The local tools are the OSS wedge. Hosted QualityMax remains available as an exp
 QUALITYMAX_API_KEY="<your-api-key>" npx -y @qualitymax/qmax-mcp proxy
 ```
 
-Hosted observability tools, including the read-only Bugsink summary and issue-list tools, are available only through this proxy mode and remain subject to the authenticated account's permissions. The local server does not connect directly to Bugsink or read Bugsink credentials.
+Hosted observability tools, including the read-only Bugsink summary and issue-list tools, are available only through this proxy mode and remain subject to the authenticated account's permissions. The local server does not connect directly to Bugsink or read Bugsink credentials. Do not add the proxy configuration unless a hosted-only capability is needed.
 
 ## Private-First Launch Boundary
 
