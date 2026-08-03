@@ -69,6 +69,9 @@ test('supported Node runtime is consistent across package metadata, CI, and rele
   assert.match(qualityWorkflow, /node: \["22\.13", "24"\]/);
   assert.match(releaseWorkflow, /node: \["22\.13", "24"\]/);
   assert.match(releaseWorkflow, /node-version: "24"/);
+  assert.match(releaseWorkflow, /WORKFLOW_REF: \$\{\{ github\.ref \}\}/);
+  assert.match(releaseWorkflow, /test "\$\{WORKFLOW_REF\}" = "refs\/tags\/\$\{RELEASE_TAG\}"/);
+  assert.match(releaseWorkflow, /git merge-base --is-ancestor "\$\{release_sha\}" origin\/main/);
   assert.match(readme, /Node 22\.13\.0 or newer/);
   assert.match(releaseGuide, /Node 22\.13 and 24/);
 });

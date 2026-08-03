@@ -31,11 +31,16 @@ jobs:
       - id: release
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
+          test "${WORKFLOW_REF}" = "refs/tags/${RELEASE_TAG}"
           test "$(git cat-file -t "refs/tags/${RELEASE_TAG}")" = tag
           test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{}")" = "$(git rev-parse HEAD)"
           test "${RELEASE_TAG}" = "v$(node -p "require('./package.json').version")"
-          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          release_sha="$(git rev-parse HEAD)"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "${release_sha}" origin/main
+          echo "release_sha=${release_sha}" >> "$GITHUB_OUTPUT"
 
   verify-package:
     name: Verify package (Node ${{ matrix.node }})
