@@ -38,7 +38,7 @@
     "@hono/node-server": "1.19.14"
   },
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=20.19.0"
   },
   "files": [
     "dist",
