@@ -25,7 +25,7 @@ The report includes a grade, findings, concrete reproduction steps, and suggeste
 | `scan_url` | Scan a URL for console, network, link, accessibility, SEO, performance, and header findings. | It makes outbound requests and can write a screenshot. |
 | `inspect_page` | Return page structure and role/name locator candidates. | It makes outbound requests. |
 | `generate_playwright_repro` | Write a deterministic, workspace-contained Playwright repro. | It writes below `.qmax-mcp/repros`; overwrites are explicit. |
-| `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; require a human approval in the client. |
+| `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; requires an accepted, digest-bound MCP human-approval elicitation. |
 
 The local server does not require an account. [Hosted proxy mode](#hosted-proxy-mode) is a separate, opt-in connection for account-backed QualityMax capabilities; do not add it unless that capability is needed.
 
@@ -43,7 +43,7 @@ The [agent setup guide](docs/agent-setup.md) explains the expected approval surf
 
 - Local scanning is networked. Private targets are denied by default; `allowPrivateNetwork: true` is only deliberate caller-side consent for a narrow loopback target.
 - Generated repros stay in a controlled workspace directory. Test runs use a minimal environment and controlled artifact directory.
-- `executionAcknowledged: true` records a caller assertion, but it does **not** independently prove that a human approved execution. Client-visible, verifiable human approval remains a release blocker tracked separately in QUA-1730.
+- `run_playwright_test` uses MCP form elicitation before execution. The server displays the target, side effects, and a SHA-256 digest to the client, and runs only after the client returns an accepted human approval for that exact digest. Clients without form-elicitation support fail closed; a bare caller-supplied boolean is not accepted as proof.
 - Read the full [MCP safety contract](docs/mcp-safety.md) and [security threat model](docs/security-threat-model.md) before publishing or enabling hosted capabilities.
 
 ## Architecture
@@ -60,7 +60,7 @@ The local tools are the open, local-first layer. Hosted QualityMax is an explici
 QUALITYMAX_API_KEY="<your-api-key>" npx -y @qualitymax/qmax-mcp proxy
 ```
 
-Only configure the proxy when a hosted-only capability is needed. The binding security review must be passed before treating a hosted proxy configuration as launch-ready.
+Only configure the proxy when a hosted-only capability is needed. The bearer credential is sent only to the pinned `https://app.qualitymax.io/api/mcp` endpoint; endpoint overrides and redirects are refused.
 
 ## Support and responsible disclosure
 

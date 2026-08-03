@@ -5,9 +5,17 @@ const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
+const { ElicitRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const { generatePlaywrightRepro } = require('../dist/tools/generate-playwright-repro.js');
 const { createLocalServer } = require('../dist/server.js');
-const { createChildEnvironment, redactSensitiveText, runCommand, safeRunnerStream } = require('../dist/tools/run-playwright-test.js');
+const {
+  createChildEnvironment,
+  describeExecutionApproval,
+  redactSensitiveText,
+  runCommand,
+  runPlaywrightTest,
+  safeRunnerStream,
+} = require('../dist/tools/run-playwright-test.js');
 const { browserContextOptions, enforceBrowserNetworkPolicy } = require('../dist/tools/common.js');
 const { assertSafeNetworkUrl, safeFetch } = require('../dist/tools/network-policy.js');
 const { renderClients } = require('../dist/clients.js');
@@ -79,8 +87,85 @@ test('two MCP client fixtures receive the locked safety annotations and descript
     assert.match(generated.description, /approved workspace directory/);
     assert.equal(generated.inputSchema.properties.overwrite.type, 'boolean');
     assert.match(run.description, /code-execution and artifact-writing boundary/);
-    assert.equal(run.inputSchema.properties.executionAcknowledged.const, true);
+    assert.equal(run.inputSchema.properties.executionAcknowledged, undefined);
+    assert.match(run.description, /human-approval elicitation/i);
     await client.close();
+  }
+});
+
+test('code execution requires a client-visible human approval elicitation bound to the exact test', async () => {
+  const source = "import { test, expect } from '@playwright/test'; test('approval', () => expect(true).toBe(true));";
+  const makeClient = async (approval) => {
+    const server = createLocalServer();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client(
+      { name: 'approval-fixture', version: '1.0.0' },
+      { capabilities: { elicitation: { form: {} } } }
+    );
+    let elicitation;
+    client.setRequestHandler(ElicitRequestSchema, async (request) => {
+      elicitation = request.params;
+      return approval;
+    });
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    return { client, elicitation: () => elicitation };
+  };
+
+  const declined = await makeClient({ action: 'decline' });
+  try {
+    const response = await declined.client.callTool({ name: 'run_playwright_test', arguments: { code: source } });
+    assert.equal(response.isError, true);
+    assert.match(response.content[0].text, /declined or cancelled/);
+    assert.match(declined.elicitation().message, /SHA-256/);
+    assert.match(declined.elicitation().message, /inline Playwright test/);
+  } finally {
+    await declined.client.close();
+  }
+
+  const approved = await makeClient({ action: 'accept', content: { approved: true } });
+  try {
+    const response = await approved.client.callTool({ name: 'run_playwright_test', arguments: { code: source } });
+    assert.equal(response.isError, undefined);
+    const result = JSON.parse(response.content[0].text);
+    assert.equal(result.status, 'passed');
+    assert.equal(result.approval.mechanism, 'mcp-form-elicitation-v1');
+    assert.equal(result.approval.client, 'approval-fixture');
+    assert.match(result.approval.digest, /^[a-f0-9]{64}$/);
+  } finally {
+    await approved.client.close();
+  }
+});
+
+test('code execution fails closed without elicitation support and rejects a changed approved file', async () => {
+  const source = "import { test, expect } from '@playwright/test'; test('approval', () => expect(true).toBe(true));";
+  const server = createLocalServer();
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'no-elicitation-fixture', version: '1.0.0' });
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  try {
+    const response = await client.callTool({ name: 'run_playwright_test', arguments: { code: source } });
+    assert.equal(response.isError, true);
+    assert.match(response.content[0].text, /cannot provide verifiable human approval/i);
+  } finally {
+    await client.close();
+  }
+
+  const originalDirectory = process.cwd();
+  const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-approval-digest-'));
+  process.chdir(workspace);
+  try {
+    await writeFile('approved.spec.ts', source, 'utf8');
+    const approval = await describeExecutionApproval({ testPath: 'approved.spec.ts' });
+    await writeFile('approved.spec.ts', `${source}\n// changed after approval`, 'utf8');
+    await assert.rejects(
+      () => runPlaywrightTest({ testPath: 'approved.spec.ts' }, { approvalDigest: approval.digest }),
+      /changed after human approval/
+    );
+  } finally {
+    process.chdir(originalDirectory);
+    await rm(workspace, { recursive: true, force: true });
   }
 });
 

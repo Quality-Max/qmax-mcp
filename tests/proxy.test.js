@@ -1,97 +1,42 @@
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
-const { once } = require('node:events');
-const http = require('node:http');
+const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const test = require('node:test');
+const { assertPinnedHostedEndpoint, forwardProxyRequest, HOSTED_MCP_ENDPOINT } = require('../dist/proxy.js');
 
-test('proxy forwards hosted tool discovery and calls unchanged', async (t) => {
-  const requests = [];
-  const server = http.createServer(async (request, response) => {
-    let body = '';
-    request.setEncoding('utf8');
-    for await (const chunk of request) body += chunk;
+test('hosted proxy pins the bearer destination and forbids redirects', async () => {
+  assert.equal(assertPinnedHostedEndpoint(HOSTED_MCP_ENDPOINT).href, HOSTED_MCP_ENDPOINT);
+  for (const unsafe of [
+    'http://app.qualitymax.io/api/mcp',
+    'https://app.qualitymax.io/api/mcp?next=https://attacker.invalid',
+    'https://app.qualitymax.io:444/api/mcp',
+    'https://attacker.invalid/api/mcp',
+    'https://app.qualitymax.io/api/mcp/redirect',
+    'https://token@attacker.invalid/api/mcp',
+  ]) {
+    assert.throws(() => assertPinnedHostedEndpoint(unsafe), /pinned QualityMax MCP endpoint/);
+  }
 
-    requests.push({
-      authorization: request.headers.authorization,
-      body: JSON.parse(body),
+  let received;
+  const request = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+  const response = await forwardProxyRequest('test-api-key', request, async (url, init) => {
+    received = { url: String(url), init };
+    return new Response('{"jsonrpc":"2.0","id":1,"result":{}}', {
+      headers: { 'content-type': 'application/json' },
     });
-
-    if (requests.length === 1) {
-      response.writeHead(200, { 'content-type': 'text/event-stream' });
-      response.end(
-        `data: ${JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          result: { tools: [{ name: 'bugsink_summary' }] },
-        })}\n\n`
-      );
-      return;
-    }
-
-    response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: 2,
-        result: { content: [{ type: 'text', text: 'bounded summary' }] },
-      })
-    );
   });
 
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  t.after(() => server.close());
+  assert.equal(received.url, HOSTED_MCP_ENDPOINT);
+  assert.equal(received.init.redirect, 'error');
+  assert.equal(received.init.headers.Authorization, 'Bearer test-api-key');
+  assert.equal(received.init.body, request);
+  assert.equal(response.status, 200);
+});
 
-  const address = server.address();
-  assert.equal(typeof address, 'object');
-  assert.ok(address);
-
-  const child = spawn(
-    process.execPath,
-    [
-      path.resolve(__dirname, '../dist/index.js'),
-      'proxy',
-      '--api-key',
-      'test-api-key',
-      '--url',
-      `http://127.0.0.1:${address.port}/api/mcp`,
-    ],
-    { stdio: ['pipe', 'pipe', 'pipe'] }
-  );
-
-  let stdout = '';
-  let stderr = '';
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    stdout += chunk;
+test('proxy CLI rejects caller-supplied hosted endpoints before a request is made', () => {
+  const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'dist', 'index.js'), 'proxy', '--url', 'https://attacker.invalid/api/mcp'], {
+    encoding: 'utf8',
   });
-  child.stderr.on('data', (chunk) => {
-    stderr += chunk;
-  });
-
-  const listRequest = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
-  const callRequest = {
-    jsonrpc: '2.0',
-    id: 2,
-    method: 'tools/call',
-    params: { name: 'bugsink_summary', arguments: { project: 'qmax-code' } },
-  };
-  child.stdin.end(`${JSON.stringify(listRequest)}\n${JSON.stringify(callRequest)}\n`);
-
-  const [exitCode] = await once(child, 'close');
-  assert.equal(exitCode, 0, stderr);
-  assert.deepEqual(
-    requests.map(({ body }) => body),
-    [listRequest, callRequest]
-  );
-  assert.deepEqual(
-    requests.map(({ authorization }) => authorization),
-    ['Bearer test-api-key', 'Bearer test-api-key']
-  );
-
-  const responses = stdout.trim().split('\n').map(JSON.parse);
-  assert.equal(responses[0].result.tools[0].name, 'bugsink_summary');
-  assert.equal(responses[1].result.content[0].text, 'bounded summary');
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /unknown option '--url'/i);
 });
