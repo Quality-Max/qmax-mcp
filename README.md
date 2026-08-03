@@ -13,6 +13,16 @@ npx -y @qualitymax/qmax-mcp
 
 No QualityMax account is required for the local tools.
 
+## Security model and release gates
+
+The public local/hosted trust boundary, current launch blockers, required
+regression evidence, and the public-distribution checklist are maintained in
+[the security threat model](docs/security-threat-model.md). Local scanning is
+networked; the local test-execution and generated-file protections listed there
+are mandatory pre-publication controls, not claims of present enforcement. This
+repository must not be made public or published until that checklist is fully
+verified for the exact release commit.
+
 ## Tools
 
 ### `scan_url`
