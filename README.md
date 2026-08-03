@@ -13,6 +13,11 @@ npx -y @qualitymax/qmax-mcp
 
 No QualityMax account is required for the local tools.
 
+`qmax-mcp` is this local npm package. QualityMax is the product, `9lives` is
+the separate self-healing CLI, and `qmax-code` is a separate coding-agent
+project. The command above is the only local installation command documented
+by this repository.
+
 ## Security model and release gates
 
 The public local/hosted trust boundary, current launch blockers, required
@@ -120,7 +125,7 @@ Claude Code `.mcp.json`:
 The local tools are the OSS wedge. Hosted QualityMax remains available as an explicit proxy mode for workspace-backed project/test-case/script workflows:
 
 ```bash
-QUALITYMAX_API_KEY=qm_... npx -y @qualitymax/qmax-mcp proxy
+QUALITYMAX_API_KEY="<your-api-key>" npx -y @qualitymax/qmax-mcp proxy
 ```
 
 Hosted observability tools, including the read-only Bugsink summary and issue-list tools, are available only through this proxy mode and remain subject to the authenticated account's permissions. The local server does not connect directly to Bugsink or read Bugsink credentials.
@@ -146,14 +151,23 @@ Keep paid:
 
 ## Development
 
-The runtime supports Node 18+. The lint tooling requires Node 18.18+, Node
-20.9+, or Node 21.1+.
+The runtime requires Node 20.19.0 or newer.
 
 ```bash
 npm install
 npm run lint
 npm run build
-npm run check # lint plus the full test suite
+npm run check # lint, tests, and MCP Registry schema validation
+npm run registry:preview # inspect the generated MCP Registry submission data
 npx playwright install chromium
 node dist/index.js scan https://example.com
 ```
+
+## Package and release metadata
+
+`server.json` is the canonical MCP Registry manifest. `npm run validate:registry`
+checks it against the official schema without publishing anything. Before a
+release, use `npm run version:sync -- <semver>` and then
+`npm run version:sync -- --check` to update and verify every public metadata
+surface together. The release workflow and rollback procedure are documented in
+[the release runbook](docs/release.md).
