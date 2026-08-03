@@ -117,6 +117,8 @@ The local tools are the OSS wedge. Hosted QualityMax remains available as an exp
 QUALITYMAX_API_KEY=qm_... npx -y @qualitymax/qmax-mcp proxy
 ```
 
+Hosted observability tools, including the read-only Bugsink summary and issue-list tools, are available only through this proxy mode and remain subject to the authenticated account's permissions. The local server does not connect directly to Bugsink or read Bugsink credentials.
+
 ## Private-First Launch Boundary
 
 Free/private-first:
