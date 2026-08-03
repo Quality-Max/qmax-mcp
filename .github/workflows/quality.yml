@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["18.18", "20.9", "22"]
+        node: ["20.19", "22.13", "24"]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -26,3 +26,20 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --engine-strict
       - run: npm run check
+
+  package-node18:
+    name: Package compatibility (Node 18.18)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "18.18"
+          cache: npm
+      # ESLint's development-only dependency requires Node 20.19+. The package
+      # itself supports Node 18.18+, so build and exercise its runtime contract here.
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: node --test test/package-contract.test.cjs tests/proxy.test.js
