@@ -1,5 +1,13 @@
 # QualityMax QA MCP
 
+[![npm version](https://img.shields.io/npm/v/@qualitymax/qmax-mcp?color=217a45)](https://www.npmjs.com/package/@qualitymax/qmax-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/@qualitymax/qmax-mcp)](https://www.npmjs.com/package/@qualitymax/qmax-mcp)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2022.13.0-brightgreen)](https://nodejs.org/)
+[![Website](https://img.shields.io/badge/Website-qualitymax.io-7c3aed)](https://qualitymax.io)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/kbEC28D4)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/qualitymax)
+
 Give a coding agent independent QA evidence before it declares a web change done: scan the page, inspect the UI, generate a focused Playwright repro, then review the execution result.
 
 ```bash
@@ -129,3 +137,7 @@ npm run demo
 ## Package and release metadata
 
 `server.json` is the canonical MCP Registry manifest. `npm run validate:registry` checks it against the official schema without publishing anything. Before a release, use `npm run version:sync -- <semver>` and then `npm run version:sync -- --check` to update and verify every public metadata surface together. The release workflow and rollback procedure are documented in [the release runbook](docs/release.md).
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 QualityMax.
