@@ -14,11 +14,29 @@ const paths = {
   metadata: path.join(root, 'src', 'metadata.ts'),
 };
 
+/** Single capture group: the prefix. There is no suffix to preserve after the value. */
+const SMITHERY_VERSION = /^(version:\s*)[^\n]+$/m;
+/** Two capture groups: the declaration prefix and the closing quote/semicolon suffix. */
+const METADATA_VERSION = /(export const PACKAGE_VERSION = ')[^']+(';)/;
+
+/**
+ * Rewrite the version between a pattern's prefix group and its optional suffix group.
+ *
+ * Not a `$1…$2` replacement template: a pattern with a single capture group has no second group,
+ * so the template would write a literal "$2" into the file. The capture groups are sliced off the
+ * replacer arguments instead, because the trailing arguments differ by pattern — a single-group
+ * pattern passes the match offset where a two-group pattern passes its second capture.
+ */
 function replaceVersion(source, expression, version, label) {
   if (!expression.test(source)) {
     throw new Error(`Could not find ${label} version to synchronize.`);
   }
-  return source.replace(expression, `$1${version}$2`);
+  return source.replace(expression, (_match, ...rest) => {
+    // Trailing arguments are offset and source, preceded by a named-groups object when one exists.
+    const trailing = typeof rest[rest.length - 1] === 'object' ? 3 : 2;
+    const [prefix = '', suffix = ''] = rest.slice(0, -trailing);
+    return `${prefix}${version}${suffix}`;
+  });
 }
 
 async function writeAtomically(file, contents) {
@@ -74,8 +92,8 @@ async function main() {
   }
   manifest.packages[0].version = requestedVersion;
 
-  const nextSmithery = replaceVersion(smitherySource, /^(version:\s*)[^\n]+$/m, requestedVersion, 'Smithery');
-  const nextMetadata = replaceVersion(metadataSource, /(export const PACKAGE_VERSION = ')[^']+(';)/, requestedVersion, 'source metadata');
+  const nextSmithery = replaceVersion(smitherySource, SMITHERY_VERSION, requestedVersion, 'Smithery');
+  const nextMetadata = replaceVersion(metadataSource, METADATA_VERSION, requestedVersion, 'source metadata');
   await Promise.all([
     writeAtomically(paths.package, `${JSON.stringify(packageJson, null, 2)}\n`),
     writeAtomically(paths.lockfile, `${JSON.stringify(lockfile, null, 2)}\n`),
@@ -86,7 +104,11 @@ async function main() {
   console.log(`Synchronized release metadata to ${requestedVersion}`);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { SMITHERY_VERSION, METADATA_VERSION, replaceVersion };

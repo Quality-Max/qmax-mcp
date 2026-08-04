@@ -49,8 +49,10 @@ test('package, registry, Smithery, and MCP server identities remain synchronized
 });
 
 test('release version synchronization check and MCP Registry preview succeed', async () => {
+  // Read the expected version rather than hardcoding it, so a release bump does not need a test edit.
+  const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   const versionCheck = await run(process.execPath, ['scripts/sync-version.cjs', '--check']);
-  assert.match(versionCheck.stdout, /Version synchronization passed: 0\.1\.0/);
+  assert.match(versionCheck.stdout, new RegExp(`Version synchronization passed: ${version.replace(/\./g, '\\.')}$`, 'm'));
 
   const preview = await run(process.execPath, ['scripts/registry-preview.cjs']);
   assert.equal(JSON.parse(preview.stdout).invocation, 'npx -y @qualitymax/qmax-mcp');
