@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="300" viewBox="0 0 1080 300" role="img" aria-labelledby="title desc">
+  <title id="title">The qmax-mcp demo flow</title>
+  <desc id="desc">One demo run calls four local tools in order: scan_url finds defects, inspect_page reads structure, generate_playwright_repro writes a repro, and run_playwright_test executes it only after a digest-bound human approval.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #14213d; }
+    .local { fill: #eaf7ef; stroke: #217a45; stroke-width: 2; rx: 14; }
+    .gate { fill: #fff6e5; stroke: #a76400; stroke-width: 2; stroke-dasharray: 8 6; rx: 14; }
+    .arrow { stroke: #415a77; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    .title { font-size: 19px; font-weight: 700; }
+    .tool { font-size: 15px; font-weight: 700; }
+    .gatelabel { font-size: 18px; font-weight: 700; }
+    .small { font-size: 14px; }
+    .muted { font-size: 14px; fill: #52596b; }
+    .step { font-size: 13px; font-weight: 700; fill: #217a45; }
+    .gatestep { font-size: 13px; font-weight: 700; fill: #a76400; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#415a77"/>
+    </marker>
+  </defs>
+
+  <text x="540" y="32" text-anchor="middle" class="title">One demo run — every tool, in order</text>
+
+  <rect x="16" y="70" width="180" height="130" class="local"/>
+  <text x="106" y="97" text-anchor="middle" class="step">1 · FIND</text>
+  <text x="106" y="123" text-anchor="middle" class="tool">scan_url</text>
+  <text x="106" y="150" text-anchor="middle" class="small">9 checks, one page load</text>
+  <text x="106" y="172" text-anchor="middle" class="small">graded findings + metrics</text>
+
+  <path d="M196 135 H225" class="arrow"/>
+
+  <rect x="225" y="70" width="180" height="130" class="local"/>
+  <text x="315" y="97" text-anchor="middle" class="step">2 · READ</text>
+  <text x="315" y="123" text-anchor="middle" class="tool">inspect_page</text>
+  <text x="315" y="150" text-anchor="middle" class="small">structure and forms</text>
+  <text x="315" y="172" text-anchor="middle" class="small">role/name locators</text>
+
+  <path d="M405 135 H434" class="arrow"/>
+
+  <rect x="434" y="70" width="245" height="130" class="local"/>
+  <text x="557" y="97" text-anchor="middle" class="step">3 · PROVE</text>
+  <text x="557" y="123" text-anchor="middle" class="tool">generate_playwright_repro</text>
+  <text x="557" y="150" text-anchor="middle" class="small">deterministic Playwright test</text>
+  <text x="557" y="172" text-anchor="middle" class="small">written under .qmax-mcp/repros</text>
+
+  <path d="M679 135 H708" class="arrow"/>
+
+  <rect x="708" y="55" width="120" height="160" class="gate"/>
+  <text x="768" y="88" text-anchor="middle" class="gatestep">CONSENT</text>
+  <text x="768" y="114" text-anchor="middle" class="gatelabel">Human</text>
+  <text x="768" y="136" text-anchor="middle" class="gatelabel">approval</text>
+  <text x="768" y="163" text-anchor="middle" class="small">SHA-256 digest</text>
+  <text x="768" y="185" text-anchor="middle" class="small">fail closed</text>
+
+  <path d="M828 135 H857" class="arrow"/>
+
+  <rect x="857" y="70" width="205" height="130" class="local"/>
+  <text x="959" y="97" text-anchor="middle" class="step">4 · RUN</text>
+  <text x="959" y="123" text-anchor="middle" class="tool">run_playwright_test</text>
+  <text x="959" y="150" text-anchor="middle" class="small">executed evidence</text>
+  <text x="959" y="172" text-anchor="middle" class="small">pass / fail receipt</text>
+
+  <text x="540" y="248" text-anchor="middle" class="muted">Green: runs locally with no account and no credentials. Amber, dashed: the one boundary that needs a person.</text>
+  <text x="540" y="272" text-anchor="middle" class="muted">The demo self-asserts its own approval digest, which is why its receipt is not evidence of human consent.</text>
+</svg>

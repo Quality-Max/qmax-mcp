@@ -40,6 +40,16 @@ const CHECK_META: Array<{ check: string; label: string; categories: string[] }> 
   { check: 'weight', label: 'Page weight', categories: ['weight'] },
 ];
 
+/**
+ * A text meter. Wrapped in a code span by callers so Markdown renders it in a monospace font and
+ * the bars stay aligned down the column.
+ */
+function meter(value: number, max: number, width: number): string {
+  if (max <= 0) return '░'.repeat(width);
+  const filled = Math.max(0, Math.min(width, Math.round((value / max) * width)));
+  return '█'.repeat(filled) + '░'.repeat(width - filled);
+}
+
 function host(url: string): string {
   try {
     return new URL(url).host;
@@ -95,6 +105,27 @@ function measurementLines(metrics: ScanMetrics | undefined): string[] {
   }
 
   const lines = ['---', '', '## Measurements', '', '| Metric | Value |', '|--------|-------|', ...rows, ''];
+
+  // Byte breakdown as a bar list: which resource types actually account for the page's weight.
+  const byType = Object.entries(weight?.bytesByResourceType ?? {})
+    .filter(([, bytes]) => bytes > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+  if (byType.length > 0) {
+    const widestType = Math.max(...byType.map(([type]) => type.length));
+    const widestSize = Math.max(...byType.map(([, bytes]) => formatBytes(bytes).length));
+    lines.push('Where the bytes went:');
+    lines.push('');
+    lines.push('```');
+    for (const [type, bytes] of byType) {
+      lines.push(
+        `${type.padEnd(widestType)}  ${meter(bytes, byType[0][1], 16)}  ${formatBytes(bytes).padStart(widestSize)}`
+      );
+    }
+    lines.push('```');
+    lines.push('');
+  }
+
   for (const note of vitals?.notes ?? []) {
     lines.push(`_${note}_`);
     lines.push('');
@@ -116,16 +147,24 @@ export function renderReport(result: ScanResult, opts: { now?: Date } = {}): str
       `${result.findingCount} ${result.findingCount === 1 ? 'issue' : 'issues'} found   ·   scanned ${date}`
   );
   lines.push('');
+  lines.push(`\`${meter(result.score, 100, 24)}\` ${result.score} / 100`);
+  lines.push('');
 
-  // Category summary table — one row per check that actually ran.
-  const rows = CHECK_META.filter((meta) => ranThese.has(meta.check)).map((meta) => {
-    const matched = result.findings.filter((f) => meta.categories.includes(f.category));
+  // Category summary table — one row per check that actually ran, with a bar scaled to the noisiest
+  // category so the shape of the result is readable before any row is.
+  const counts = CHECK_META.filter((meta) => ranThese.has(meta.check)).map((meta) => ({
+    meta,
+    matched: result.findings.filter((f) => meta.categories.includes(f.category)),
+  }));
+  const busiest = Math.max(0, ...counts.map((entry) => entry.matched.length));
+  const rows = counts.map(({ meta, matched }) => {
     const worst = worstSeverity(matched);
-    return `| ${meta.label} | ${matched.length} | ${worst ? `${SEVERITY_EMOJI[worst]} ${worst}` : '—'} |`;
+    const bar = busiest > 0 ? ` \`${meter(matched.length, busiest, 10)}\`` : '';
+    return `| ${meta.label} |${bar} ${matched.length} | ${worst ? `${SEVERITY_EMOJI[worst]} ${worst}` : '—'} |`;
   });
   if (rows.length) {
     lines.push('| Category | Issues | Worst |');
-    lines.push('|----------|:------:|:-----:|');
+    lines.push('|----------|--------|:-----:|');
     lines.push(...rows);
     lines.push('');
   }

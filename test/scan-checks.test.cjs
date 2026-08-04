@@ -360,9 +360,11 @@ test('the Markdown report renders the new categories and measured values', () =>
     { now: new Date('2026-08-04T00:00:00Z') }
   );
 
-  assert.match(report, /\| Cookies and trackers \| 1 \|/);
-  assert.match(report, /\| Mixed content \| 0 \|/);
-  assert.match(report, /\| Page weight \| 0 \|/);
+  assert.match(report, /\| Cookies and trackers \| `█+░*` 1 \|/);
+  assert.match(report, /\| Mixed content \| `░+` 0 \|/);
+  assert.match(report, /\| Page weight \| `░+` 0 \|/);
+  assert.match(report, /^`█{17}░{7}` 70 \/ 100$/m, 'the score meter is scaled to 100 and rendered monospace');
+  assert.match(report, /Where the bytes went:\n\n```\nscript {2}█{16} {2}900 kB\n```/);
   assert.match(report, /## Measurements/);
   assert.match(report, /Largest Contentful Paint \| 2600ms/);
   assert.match(report, /Interaction to Next Paint \| not measured/);
@@ -381,4 +383,8 @@ test('reports without metrics omit the measurements section', () => {
     findings: [],
   });
   assert.equal(report.includes('## Measurements'), false);
+  assert.equal(report.includes('Where the bytes went'), false);
+  assert.match(report, /^`█{24}` 100 \/ 100$/m);
+  // With nothing to compare against, a bar in every row would imply a magnitude that is not there.
+  assert.match(report, /\| SEO \| 0 \|/);
 });

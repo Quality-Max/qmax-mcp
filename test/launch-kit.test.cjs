@@ -21,6 +21,7 @@ test('README leads with the agent-first local QA promise and canonical command',
 test('launch kit keeps reproducible proof, safety, comparison, and disclosure assets linked', async () => {
   const assets = [
     'demo/app/index.html',
+    'demo/flow.svg',
     'demo/run.mjs',
     'demo/record.mjs',
     'demo/scan-to-repro.cast',

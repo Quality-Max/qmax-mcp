@@ -16,7 +16,9 @@ Ask an MCP-enabled agent to scan the URL it changed, or run the local CLI:
 npx -y @qualitymax/qmax-mcp scan https://example.com --format markdown
 ```
 
-The report includes a grade, findings, concrete reproduction steps, and suggested fixes. For a checked-in, dependency-free walkthrough of the whole flow, see the [reproducible demo](demo/README.md): **scan → finding → generated repro → executed evidence**.
+The report includes a graded summary, findings, concrete reproduction steps, and suggested fixes. One command exercises all four tools against a checked-in, dependency-free fixture — see the [reproducible demo](demo/README.md).
+
+![The demo flow: scan_url, inspect_page, generate_playwright_repro, then run_playwright_test behind a human approval gate](demo/flow.svg)
 
 ### What one scan measures
 

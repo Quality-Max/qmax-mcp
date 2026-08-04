@@ -32,9 +32,35 @@ test('the demo runs scan to executed evidence and returns a digest-bound receipt
   const receipt = JSON.parse(stdout);
 
   assert.equal(receipt.kind, 'qualitymax-reproducible-demo');
-  assert.equal(receipt.scan.findingCount, 1);
-  assert.equal(receipt.scan.findings[0].category, 'console');
-  assert.match(receipt.scan.findings[0].message, /Demo checkout calculation failed/);
+  assert.deepEqual(receipt.tools, [
+    'scan_url',
+    'inspect_page',
+    'generate_playwright_repro',
+    'run_playwright_test',
+  ]);
+
+  // The fixture carries one defect per check, so a run that stops reporting a category means the
+  // check regressed, not that the fixture got better.
+  assert.deepEqual(receipt.scan.categoriesReported, [
+    'accessibility',
+    'console',
+    'cookies',
+    'links',
+    'mixed_content',
+    'security_headers',
+    'seo',
+    'weight',
+  ]);
+  assert.ok(receipt.scan.findingCount >= 9);
+  assert.ok(receipt.scan.findings.some((finding) => /Demo checkout calculation failed/.test(finding.message)));
+  assert.equal(typeof receipt.scan.metrics.vitals.lcpMs, 'number');
+  assert.equal(receipt.scan.metrics.vitals.inpMs, null);
+  assert.ok(receipt.scan.metrics.weight.totalBytes > 0);
+
+  assert.ok(receipt.inspect.interactiveCount > 0);
+  assert.equal(receipt.inspect.formCount, 1);
+  assert.ok(receipt.inspect.locatorCandidates.some((locator) => /getByRole\('button'/.test(locator)));
+
   assert.match(receipt.repro.generatedPath, /^\.qmax-mcp\/repros\/.+\.spec\.ts$/);
 
   // The fixture keeps its intentional error, so a passing run would mean the repro proved nothing.
@@ -57,7 +83,13 @@ test('the demo Markdown mode reports the executed result and its approval limit'
 
   assert.match(stdout, /# QA Scan/);
   assert.match(stdout, /Demo checkout calculation failed/);
-  assert.match(stdout, /## Generated repro and execution evidence/);
+  assert.match(stdout, /\| 1 \| `scan_url` \|/);
+  assert.match(stdout, /\| 4 \| `run_playwright_test` \|/);
+  assert.match(stdout, /`[█░]{24}` \d+ \/ 100/, 'the score meter is rendered');
+  assert.match(stdout, /Where the bytes went:/, 'the byte breakdown bars are rendered');
+  assert.match(stdout, /## Page structure — `inspect_page`/);
+  assert.match(stdout, /- `page\.getByRole\(/);
+  assert.match(stdout, /## Repro and executed evidence/);
   assert.match(stdout, /Executed on Chromium: expected \*\*failed\*\* result/);
   assert.match(stdout, /Execution digest: `[a-f0-9]{64}`/);
   assert.match(stdout, /not independently verifiable human approval/);
