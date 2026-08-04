@@ -21,7 +21,9 @@
   "execution": {
     "status": "failed",
     "expectedStatus": "failed",
-    "approvalEvidence": "executionAcknowledged: true is a caller assertion, not independent proof of human approval."
+    "approvalMechanism": "demo-self-asserted-digest",
+    "approvalDigest": "<sha256 of the executed test>",
+    "approvalEvidence": "The demo computed and supplied its own execution digest. That is a caller assertion, not independent proof of human approval."
   },
   "limitation": "The fixture deliberately fails. This proves the scan-to-repro path but does not resolve QUA-1730's client-verifiable human-approval requirement."
 }

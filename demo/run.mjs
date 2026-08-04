@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { generatePlaywrightRepro } from '../dist/tools/generate-playwright-repro.js';
 import { renderReport } from '../dist/report.js';
-import { runPlaywrightTest } from '../dist/tools/run-playwright-test.js';
+import { describeExecutionApproval, runPlaywrightTest } from '../dist/tools/run-playwright-test.js';
 import { scanUrl } from '../dist/tools/scan-url.js';
 
 const format = process.argv.includes('--format') ? process.argv[process.argv.indexOf('--format') + 1] : 'markdown';
@@ -40,11 +40,12 @@ try {
     finding,
     testName: 'Demo checkout calculation error remains reproducible',
   });
-  const execution = await runPlaywrightTest({
-    testPath: generated.filePath,
-    browser: 'chromium',
-    executionAcknowledged: true,
-  });
+  // The runner only executes a digest it has already seen approved. A real client obtains that
+  // digest from an MCP form elicitation a human accepts; this script computes it for itself, which
+  // is why the receipt below records it as a self-assertion rather than as human approval.
+  const executionArgs = { testPath: generated.filePath, browser: 'chromium' };
+  const approval = await describeExecutionApproval(executionArgs);
+  const execution = await runPlaywrightTest(executionArgs, { approvalDigest: approval.digest });
   if (execution.status !== 'failed') {
     throw new Error(`Expected the intentional repro to fail, received ${execution.status}.`);
   }
@@ -66,8 +67,10 @@ try {
       status: execution.status,
       expectedStatus: 'failed',
       summary: execution.summary,
+      approvalMechanism: 'demo-self-asserted-digest',
+      approvalDigest: approval.digest,
       approvalEvidence:
-        'The demo sent executionAcknowledged: true. This is a visible caller assertion, not independent proof of human approval.',
+        'The demo computed and supplied its own execution digest. This is a visible caller assertion, not independent proof of human approval; a real client obtains the digest from an MCP form elicitation a human accepts.',
     },
     limitation:
       'This intentionally failing fixture proves the scan-to-repro path. It does not resolve QUA-1730’s client-verifiable human-approval requirement.',
@@ -80,7 +83,10 @@ try {
     process.stdout.write('## Generated repro and execution evidence\n\n');
     process.stdout.write(`- Generated: \`${generated.filePath}\`\n`);
     process.stdout.write(`- Executed on Chromium: expected **${execution.status}** result\n`);
-    process.stdout.write('- Approval limit: `executionAcknowledged: true` is not independently verifiable human approval.\n');
+    process.stdout.write(`- Execution digest: \`${approval.digest}\`\n`);
+    process.stdout.write(
+      '- Approval limit: the demo self-asserted this digest. That is not independently verifiable human approval.\n'
+    );
   }
 } finally {
   await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));

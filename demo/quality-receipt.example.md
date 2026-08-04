@@ -23,6 +23,6 @@
 
 - A deterministic repro is generated below `.qmax-mcp/repros`.
 - Chromium executes that repro and returns the expected **failed** status because the fixture intentionally retains the error.
-- `executionAcknowledged: true` is not independently verifiable human approval; QUA-1730 remains open.
+- The runner executed only the digest it was given. The demo self-asserted that digest, so it is not independently verifiable human approval; a real client obtains it from a form elicitation a human accepts.
 
 This is a stable, illustrative receipt shape. Generate current evidence with `npm run demo` or `npm run demo -- --format json`.

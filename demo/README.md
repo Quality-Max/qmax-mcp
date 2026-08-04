@@ -17,4 +17,4 @@ The JSON mode is the machine-readable quality receipt. It identifies the exact s
 
 ## Safety limit
 
-The script sends `executionAcknowledged: true` because the runner requires that argument. It is not a verifiable record of a human client approval. Do not use this demo as evidence that QUA-1730’s human-approval control is complete; consult the [security threat model](../docs/security-threat-model.md) before release.
+The runner executes only a test digest it has already seen approved. A real MCP client obtains that digest from a form elicitation a human accepts; this script computes the digest and supplies it to itself, which the receipt records as `approvalMechanism: "demo-self-asserted-digest"`. It is not a verifiable record of a human client approval. Do not use this demo as evidence that QUA-1730’s human-approval control is complete; consult the [security threat model](../docs/security-threat-model.md) before release.
