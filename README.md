@@ -38,6 +38,33 @@ All nine checks run off a single page load. Pass `checks` to run a subset.
 
 `scan_url` also returns a `metrics` block with the measured vitals and the page-weight breakdown, including the slowest requests. Two limits are stated in that block rather than hidden: **INP is not measured**, because it needs real user interaction, and vitals come from one cold load on the scanning machine, not from field data. Set `weightBudget` to scan against your own performance budget.
 
+### What the report looks like
+
+`--format markdown` opens with the shape of the result, so a human or an agent can see where the problems are before reading a single finding:
+
+> **Grade: 🔴 F  (0 / 100)**   ·   17 issues found
+>
+> `░░░░░░░░░░░░░░░░░░░░░░░░` 0 / 100
+>
+> | Category | Issues | Worst |
+> |----------|--------|:-----:|
+> | Console errors | `██░░░░░░░░` 1 | 🔴 high |
+> | Accessibility | `████████░░` 3 | 🔴 high |
+> | Security headers | `██████████` 4 | 🟠 medium |
+> | Cookies and trackers | `█████░░░░░` 2 | 🟠 medium |
+> | Page weight | `██████████` 4 | 🟠 medium |
+
+Each bar is scaled to the noisiest category in that run, so the tallest bar is the thing to fix first. When `weight` runs, the measurements section also attributes the bytes:
+
+```
+script      ████████████████  18 kB
+document    ██░░░░░░░░░░░░░░   3 kB
+stylesheet  ██░░░░░░░░░░░░░░   1 kB
+image       ░░░░░░░░░░░░░░░░  417 B
+```
+
+Then every finding follows with its severity, a copy-pasteable reproduction, and a suggested fix. Use `--format json` for the same data as structured output.
+
 ## What the agent can do
 
 | Tool | Local capability | Boundary to review |
