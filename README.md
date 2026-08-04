@@ -16,13 +16,33 @@ Ask an MCP-enabled agent to scan the URL it changed, or run the local CLI:
 npx -y @qualitymax/qmax-mcp scan https://example.com --format markdown
 ```
 
-The report includes a grade, findings, concrete reproduction steps, and suggested fixes. For a checked-in, dependency-free walkthrough of the whole flow, see the [reproducible demo](demo/README.md): **scan → finding → generated repro → executed evidence**.
+The report includes a graded summary, findings, concrete reproduction steps, and suggested fixes. One command exercises all four tools against a checked-in, dependency-free fixture — see the [reproducible demo](demo/README.md).
+
+![The demo flow: scan_url, inspect_page, generate_playwright_repro, then run_playwright_test behind a human approval gate](demo/flow.svg)
+
+### What one scan measures
+
+All nine checks run off a single page load. Pass `checks` to run a subset.
+
+| Check | What it reports |
+| --- | --- |
+| `console` | JavaScript errors, warnings, and failed requests |
+| `links` | Broken and redirecting links, up to `maxLinks` |
+| `accessibility` | Missing alt text, unlabelled controls, nameless interactive elements, heading structure |
+| `performance` | Core Web Vitals: LCP, CLS, TTFB, FCP |
+| `seo` | Title and meta description |
+| `security_headers` | CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` |
+| `cookies` | Missing `Secure`/`HttpOnly`/`SameSite`, third-party cookies, known trackers, tracking before consent |
+| `mixed_content` | HTTP subresources and form actions on an HTTPS page, split into browser-blocked active and passive |
+| `weight` | Transfer bytes, request count, render-blocking resources, oversized and uncompressed assets, third-party cost |
+
+`scan_url` also returns a `metrics` block with the measured vitals and the page-weight breakdown, including the slowest requests. Two limits are stated in that block rather than hidden: **INP is not measured**, because it needs real user interaction, and vitals come from one cold load on the scanning machine, not from field data. Set `weightBudget` to scan against your own performance budget.
 
 ## What the agent can do
 
 | Tool | Local capability | Boundary to review |
 | --- | --- | --- |
-| `scan_url` | Scan a URL for console, network, link, accessibility, SEO, performance, and header findings. | It makes outbound requests and can write a screenshot. |
+| `scan_url` | Scan a URL for console, network, link, accessibility, SEO, security-header, cookie/tracker, mixed-content, page-weight, and Core Web Vitals findings. | It makes outbound requests and can write a screenshot. |
 | `inspect_page` | Return page structure and role/name locator candidates. | It makes outbound requests. |
 | `generate_playwright_repro` | Write a deterministic, workspace-contained Playwright repro. | It writes below `.qmax-mcp/repros`; overwrites are explicit. |
 | `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; requires an accepted, digest-bound MCP human-approval elicitation. |

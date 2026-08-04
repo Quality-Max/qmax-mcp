@@ -10,6 +10,7 @@
     "build": "tsc",
     "lint": "eslint src",
     "test": "npm run build && node --test test/*.test.cjs tests/*.test.js",
+    "test:demo": "npm run build && node --test test/demo/*.test.cjs",
     "validate:registry": "node scripts/validate-registry-contract.cjs",
     "registry:preview": "node scripts/registry-preview.cjs",
     "eval:agent-discovery": "node scripts/evaluate-agent-discovery.cjs --expectations-only",

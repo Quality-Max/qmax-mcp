@@ -1,17 +1,102 @@
 {
-  "receiptVersion": 1,
+  "receiptVersion": 2,
   "kind": "qualitymax-reproducible-demo",
   "target": "dependency-free local fixture on 127.0.0.1 (ephemeral port)",
+  "tools": ["scan_url", "inspect_page", "generate_playwright_repro", "run_playwright_test"],
   "scan": {
-    "checks": ["console"],
-    "findingCount": 1,
+    "checks": [
+      "console",
+      "links",
+      "accessibility",
+      "performance",
+      "seo",
+      "security_headers",
+      "cookies",
+      "mixed_content",
+      "weight"
+    ],
+    "weightBudget": { "totalBytes": 15000, "renderBlocking": 1, "scriptBytes": 15000 },
+    "score": 0,
+    "findingCount": 17,
+    "categoriesReported": [
+      "accessibility",
+      "console",
+      "cookies",
+      "links",
+      "mixed_content",
+      "security_headers",
+      "seo",
+      "weight"
+    ],
+    "metrics": {
+      "vitals": {
+        "lcpMs": 20,
+        "clsScore": 0,
+        "fcpMs": 20,
+        "ttfbMs": 3,
+        "domContentLoadedMs": 14,
+        "loadMs": 41,
+        "inpMs": null,
+        "notes": [
+          "Sampled from one cold load on the scanning machine. Treat it as a signal, not as field data from real users.",
+          "INP is not measured: Interaction to Next Paint requires real user interaction, which this scan does not perform.",
+          "LCP is its value once the network went idle; a later element could still become the largest."
+        ]
+      },
+      "weight": {
+        "totalBytes": 22371,
+        "requestCount": 4,
+        "totalBytesComplete": true,
+        "bytesByResourceType": { "script": 18276, "document": 2678, "stylesheet": 1000, "image": 417 },
+        "thirdPartyOrigins": [],
+        "budget": { "totalBytes": 15000, "requestCount": 80, "renderBlocking": 1, "imageBytes": 500000, "scriptBytes": 15000 }
+      }
+    },
+    "screenshotPath": "<system temp dir>/qmax-mcp/scan-<id>.png",
     "findings": [
       {
         "severity": "high",
         "category": "console",
         "message": "error: Demo checkout calculation failed",
         "suggestion": "Fix runtime errors and warnings before relying on generated tests."
+      },
+      {
+        "severity": "high",
+        "category": "accessibility",
+        "message": "Form control has no accessible label.",
+        "selector": "input",
+        "suggestion": "Associate the control with a visible label or aria-label."
+      },
+      {
+        "severity": "medium",
+        "category": "cookies",
+        "message": "1 session or authentication cookie is readable from JavaScript.",
+        "evidence": ["demo_session (127.0.0.1/)"],
+        "suggestion": "Set HttpOnly on session and authentication cookies so injected script cannot exfiltrate them."
+      },
+      {
+        "severity": "medium",
+        "category": "weight",
+        "message": "1 text resource is served without compression.",
+        "suggestion": "Enable Brotli or gzip at the origin or CDN. Text assets typically shrink by 70% or more."
+      },
+      {
+        "severity": "info",
+        "category": "mixed_content",
+        "message": "Mixed content does not apply: the page itself was served over HTTP.",
+        "suggestion": "Serve the page over HTTPS, then rescan to check its subresources."
       }
+    ]
+  },
+  "inspect": {
+    "title": "Northwind Coffee — checkout",
+    "headingCount": 3,
+    "interactiveCount": 5,
+    "formCount": 1,
+    "locatorCandidates": [
+      "page.getByRole('textbox', { name: \"you@example.com\" })",
+      "page.getByRole('link', { name: \"Pricing\" })",
+      "page.getByRole('button', { name: \"Complete checkout\" })"
     ]
   },
   "repro": {
@@ -21,7 +106,15 @@
   "execution": {
     "status": "failed",
     "expectedStatus": "failed",
-    "approvalEvidence": "executionAcknowledged: true is a caller assertion, not independent proof of human approval."
+    "summary": { "stats": { "expected": 0, "unexpected": 1, "skipped": 0, "flaky": 0 } },
+    "approvalMechanism": "demo-self-asserted-digest",
+    "approvalDigest": "<sha256 of the executed test>",
+    "approvalEvidence": "The demo computed and supplied its own execution digest. That is a caller assertion, not independent proof of human approval."
   },
-  "limitation": "The fixture deliberately fails. This proves the scan-to-repro path but does not resolve QUA-1730's client-verifiable human-approval requirement."
+  "limitations": [
+    "The fixture is served over HTTP on loopback, so the mixed_content check correctly reports itself as not applicable and no third-party trackers or cookies can appear.",
+    "Core Web Vitals are measured against a local fixture on this machine, so they are fast by construction and are shown as measurements rather than as a passing grade.",
+    "The weight budget is deliberately set below the fixture size to demonstrate the check. It is not a recommended budget.",
+    "The intentionally failing repro proves the scan-to-repro path. It does not resolve QUA-1730's client-verifiable human-approval requirement."
+  ]
 }

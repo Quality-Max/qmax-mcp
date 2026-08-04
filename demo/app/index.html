@@ -3,18 +3,55 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>QualityMax reproducible demo</title>
-    <meta
-      name="description"
-      content="A dependency-free local fixture that deliberately throws a browser error for the QualityMax demo."
-    />
+    <title>Northwind Coffee — checkout</title>
+    <!-- seo: deliberately shorter than the 50 characters the check expects -->
+    <meta name="description" content="A local demo fixture." />
+    <!-- weight: deliberately render-blocking — no defer on the script, no media on the stylesheet -->
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/heavy.js"></script>
   </head>
   <body>
+    <header class="bar">
+      <!-- accessibility: this image has no alt text -->
+      <img src="/logo.svg" width="32" height="32" />
+      <strong>Northwind Coffee</strong>
+      <nav>
+        <a href="/pricing">Pricing</a>
+        <!-- links: this target does not exist -->
+        <a href="/missing">Release notes</a>
+      </nav>
+    </header>
+
     <main>
-      <h1>Reproducible QualityMax demo</h1>
-      <p>This fixture intentionally throws one browser error. Do not use it as production code.</p>
+      <h1>Checkout</h1>
+      <p class="lede">
+        A deliberately flawed storefront. It carries one of every defect the scan reports, so a
+        single demo run exercises the whole tool surface. Do not use it as production code.
+      </p>
+
+      <section class="card">
+        <h2>Order summary</h2>
+        <table class="lines">
+          <tr><td>Ethiopia Yirgacheffe · 1kg</td><td class="num">$24.00</td></tr>
+          <tr><td>Colombia Huila · 1kg</td><td class="num">$21.00</td></tr>
+          <tr class="total"><td>Total</td><td class="num" id="order-total">—</td></tr>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Delivery</h2>
+        <form action="/checkout" method="post">
+          <!-- accessibility: the input has no associated label -->
+          <input type="email" name="email" placeholder="you@example.com" />
+          <!-- accessibility: this button has no accessible name -->
+          <button type="submit" class="icon"></button>
+        </form>
+        <button data-testid="checkout-submit" class="primary">Complete checkout</button>
+      </section>
     </main>
+
     <script>
+      // console: the intentional runtime error the generated repro reproduces
       throw new Error('Demo checkout calculation failed');
     </script>
   </body>

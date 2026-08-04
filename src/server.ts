@@ -79,7 +79,7 @@ export function createLocalServer(): McpServer {
     {
       title: 'Scan URL',
       description:
-        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, performance, SEO, and security headers. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
+        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -93,6 +93,15 @@ export function createLocalServer(): McpServer {
         screenshot: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),
         format: z.enum(['json', 'markdown']).optional(),
+        weightBudget: z
+          .object({
+            totalBytes: z.number().int().positive().optional(),
+            requestCount: z.number().int().positive().optional(),
+            renderBlocking: z.number().int().nonnegative().optional(),
+            imageBytes: z.number().int().positive().optional(),
+            scriptBytes: z.number().int().positive().optional(),
+          })
+          .optional(),
         viewport: z
           .object({
             width: z.number().int().min(320).max(3840),

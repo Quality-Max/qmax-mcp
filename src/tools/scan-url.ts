@@ -1,8 +1,31 @@
 import { writeTempFile, type Finding, type Viewport, scoreFromFindings, validateHttpUrl, withPage } from './common';
+import { analyzeCookies, toCookieSignal } from './checks/cookies';
+import { analyzeMixedContent, type MarkupResource } from './checks/mixed-content';
+import {
+  mergeResourceSignals,
+  type RenderBlockingSignal,
+  type ResourceTimingObservation,
+  type ResponseObservation,
+} from './checks/signals';
+import { analyzeVitals, installVitalsObservers, readVitals, type VitalsMetrics } from './checks/vitals';
+import { analyzeWeight, type WeightBudget, type WeightMetrics } from './checks/weight';
 import { safeFetch, safeUrlForDisplay } from './network-policy';
 import { redactSensitiveData } from './run-playwright-test';
 
-const DEFAULT_CHECKS = ['console', 'links', 'accessibility', 'performance', 'seo', 'security_headers'];
+const DEFAULT_CHECKS = [
+  'console',
+  'links',
+  'accessibility',
+  'performance',
+  'seo',
+  'security_headers',
+  'cookies',
+  'mixed_content',
+  'weight',
+];
+
+/** Checks that need the page's own network and markup inventory. */
+const PAGE_INVENTORY_CHECKS = ['cookies', 'mixed_content', 'weight'];
 
 export type ScanUrlArgs = {
   url: string;
@@ -11,6 +34,12 @@ export type ScanUrlArgs = {
   screenshot?: boolean;
   viewport?: Viewport;
   allowPrivateNetwork?: boolean;
+  weightBudget?: Partial<WeightBudget>;
+};
+
+export type ScanMetrics = {
+  vitals?: VitalsMetrics;
+  weight?: WeightMetrics;
 };
 
 export async function scanUrl(args: ScanUrlArgs) {
@@ -22,8 +51,29 @@ export async function scanUrl(args: ScanUrlArgs) {
   const requestFailures: Array<{ url: string; failure?: string }> = [];
   let mainHeaders: Record<string, string> = {};
   let screenshotPath: string | undefined;
+  const metrics: ScanMetrics = {};
+  const wantsInventory = PAGE_INVENTORY_CHECKS.some((check) => checks.has(check));
 
   await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork }, async (page) => {
+    const responses: ResponseObservation[] = [];
+    if (wantsInventory) {
+      page.on('response', (response) => {
+        const headers = response.headers();
+        const declaredLength = Number.parseInt(headers['content-length'] ?? '', 10);
+        responses.push({
+          url: response.url(),
+          resourceType: response.request().resourceType(),
+          status: response.status(),
+          contentType: headers['content-type'],
+          contentEncoding: headers['content-encoding'],
+          contentLength: Number.isFinite(declaredLength) ? declaredLength : undefined,
+        });
+      });
+    }
+    if (checks.has('performance')) {
+      await page.addInitScript(installVitalsObservers);
+    }
+
     page.on('console', (msg) => {
       if (['error', 'warning'].includes(msg.type())) {
         consoleMessages.push({
@@ -187,30 +237,51 @@ export async function scanUrl(args: ScanUrlArgs) {
     }
 
     if (checks.has('performance')) {
-      const perf = await page.evaluate(() => {
-        const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-        return nav
-          ? {
-              domContentLoadedMs: Math.round(nav.domContentLoadedEventEnd - nav.startTime),
-              loadMs: Math.round(nav.loadEventEnd - nav.startTime),
-              transferSize: nav.transferSize,
-            }
-          : null;
-      });
-      if (perf?.domContentLoadedMs && perf.domContentLoadedMs > 3000) {
-        findings.push({
-          severity: 'medium',
-          category: 'performance',
-          message: `DOM content loaded in ${perf.domContentLoadedMs}ms.`,
-          evidence: perf,
-          repro: `1. Open ${displayUrl} with DevTools → Performance\n2. Reload and read DOMContentLoaded (${perf.domContentLoadedMs}ms)`,
-          suggestion: 'Investigate render-blocking resources and slow server responses.',
-        });
-      }
+      const vitals = analyzeVitals(await page.evaluate(readVitals), displayUrl);
+      findings.push(...vitals.findings);
+      metrics.vitals = vitals.metrics;
     }
 
     if (checks.has('security_headers')) {
       findings.push(...checkSecurityHeaders(mainHeaders, displayUrl));
+    }
+
+    if (wantsInventory) {
+      const inventory = await page.evaluate(collectPageInventory);
+      const timings = await page.evaluate(readResourceTimings);
+      const resources = mergeResourceSignals(responses, timings, safeUrlForDisplay);
+
+      if (checks.has('cookies')) {
+        findings.push(
+          ...analyzeCookies({
+            pageUrl: displayUrl,
+            cookies: (await page.context().cookies()).map(toCookieSignal),
+            requestUrls: resources.map((resource) => resource.url),
+            consentBanner: inventory.consentBanner,
+          })
+        );
+      }
+
+      if (checks.has('mixed_content')) {
+        findings.push(
+          ...analyzeMixedContent({
+            pageUrl: displayUrl,
+            markup: inventory.markup.map((item) => ({ ...item, url: safeUrlForDisplay(item.url) })),
+            resources,
+          })
+        );
+      }
+
+      if (checks.has('weight')) {
+        const weight = analyzeWeight({
+          pageUrl: displayUrl,
+          resources,
+          renderBlocking: inventory.renderBlocking.map((item) => ({ ...item, url: safeUrlForDisplay(item.url) })),
+          budget: args.weightBudget,
+        });
+        findings.push(...weight.findings);
+        metrics.weight = weight.metrics;
+      }
     }
 
     if (args.screenshot) {
@@ -226,8 +297,97 @@ export async function scanUrl(args: ScanUrlArgs) {
     checks: Array.from(checks),
     findingCount: findings.length,
     findings: redactSensitiveData(findings) as Finding[],
+    metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
     screenshotPath,
   };
+}
+
+/** Read every `PerformanceResourceTiming` entry plus the navigation itself. Runs in the page. */
+function readResourceTimings(): ResourceTimingObservation[] {
+  const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+  const toObservation = (entry: PerformanceResourceTiming) => ({
+    url: entry.name,
+    initiatorType: entry.initiatorType,
+    transferSize: entry.transferSize,
+    encodedBodySize: entry.encodedBodySize,
+    decodedBodySize: entry.decodedBodySize,
+    startMs: Math.round(entry.startTime),
+    durationMs: Math.round(entry.duration),
+  });
+
+  const observations = entries.map(toObservation);
+  if (navigation) observations.unshift({ ...toObservation(navigation), url: location.href, initiatorType: 'navigation' });
+  return observations;
+}
+
+/**
+ * Read subresource references, render-blocking `<head>` resources, and any consent banner
+ * straight out of the DOM. Runs in the page.
+ *
+ * Markup is read as well as the network because the browser refuses to load active mixed content,
+ * so blocked subresources never produce a response event.
+ */
+function collectPageInventory(): {
+  markup: MarkupResource[];
+  renderBlocking: RenderBlockingSignal[];
+  consentBanner: { present: boolean; selector?: string };
+} {
+  const markup: MarkupResource[] = [];
+  const push = (kind: MarkupResource['kind'], url: string | null | undefined) => {
+    if (url && /^(https?|wss?):/i.test(url)) markup.push({ kind, url });
+  };
+
+  for (const el of Array.from(document.querySelectorAll('script[src]'))) push('script', (el as HTMLScriptElement).src);
+  for (const el of Array.from(document.querySelectorAll('link[rel~="stylesheet"][href]')))
+    push('stylesheet', (el as HTMLLinkElement).href);
+  for (const el of Array.from(document.querySelectorAll('iframe[src]'))) push('iframe', (el as HTMLIFrameElement).src);
+  for (const el of Array.from(document.images)) push('image', el.src);
+  for (const el of Array.from(document.querySelectorAll('video[src], audio[src], source[src]')))
+    push('media', (el as HTMLMediaElement | HTMLSourceElement).src);
+  for (const form of Array.from(document.forms)) push('form-action', form.action);
+
+  const renderBlocking: RenderBlockingSignal[] = [];
+  for (const el of Array.from(document.head.querySelectorAll('script[src]'))) {
+    const script = el as HTMLScriptElement;
+    if (!script.async && !script.defer && script.type !== 'module') renderBlocking.push({ kind: 'script', url: script.src });
+  }
+  for (const el of Array.from(document.head.querySelectorAll('link[rel~="stylesheet"][href]'))) {
+    const link = el as HTMLLinkElement;
+    if (!link.disabled && link.media !== 'print') renderBlocking.push({ kind: 'stylesheet', url: link.href });
+  }
+
+  // A consent banner is an overlay that names cookies/consent and offers an accept or reject
+  // control. Requiring fixed or sticky positioning keeps ordinary footer privacy links, which are
+  // not consent gates, from being reported as one.
+  const consentText = /\b(cookie|consent|gdpr|ccpa)\b/i;
+  const consentAction = /\b(accept|agree|allow|reject|decline|got it|understood)\b/i;
+  let consentBanner: { present: boolean; selector?: string; excerpt?: string } = { present: false };
+  const candidates = Array.from(document.querySelectorAll('div, section, aside, dialog, [role="dialog"]')).slice(0, 500);
+  for (const el of candidates) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 200 || rect.height < 40) continue;
+
+    const style = getComputedStyle(el);
+    const overlay = style.position === 'fixed' || style.position === 'sticky' || el.tagName === 'DIALOG';
+    if (!overlay || style.visibility === 'hidden' || style.display === 'none') continue;
+
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 2000);
+    if (!consentText.test(text)) continue;
+    const actions = Array.from(el.querySelectorAll('button, a, [role="button"]'));
+    if (!actions.some((action) => consentAction.test(action.textContent || ''))) continue;
+
+    const id = el.getAttribute('id');
+    const classes = (el.getAttribute('class') || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+    consentBanner = {
+      present: true,
+      selector: id ? `#${id}` : [el.tagName.toLowerCase(), ...classes].join('.'),
+      excerpt: text.slice(0, 160),
+    };
+    break;
+  }
+
+  return { markup, renderBlocking, consentBanner };
 }
 
 function pageUrl(url: string): URL {

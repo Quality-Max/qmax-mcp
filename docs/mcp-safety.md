@@ -7,6 +7,7 @@ both the annotation flags and every tool description.
 | Tool | Network | Local filesystem | Local code execution | Approval boundary |
 | --- | --- | --- | --- | --- |
 | `scan_url` | Outbound browser and HTTP requests | Optional screenshot artifact | No | Approve a networked scan / artifact write |
+| `scan_url` (cookie check) | Reads the scan browser's own cookie jar | No write | No | Cookie names and flags only; values are never returned |
 | `inspect_page` | Outbound browser requests | No intended write | No | Approve target inspection |
 | `generate_playwright_repro` | None | Writes under `.qmax-mcp/repros` | No | Approve file creation or explicit overwrite |
 | `run_playwright_test` | May be requested by supplied test code | Writes controlled run artifacts | Yes | Require an accepted MCP form elicitation for the exact execution digest |
@@ -15,6 +16,22 @@ The MCP-standard `readOnlyHint`, `destructiveHint`, `idempotentHint`, and
 `openWorldHint` values are locked by a protocol-level tool-list test using two
 independent client fixtures. This is a compatibility check; it does not claim
 that a particular client will always render a specific UI.
+
+## Cookie inspection
+
+The `cookies` check reads the cookies the scanned page set in the scan's own
+throwaway browser context. It never touches a real browser profile, and it
+returns only each cookie's name, domain, path, and security flags.
+
+Cookie values are dropped at the single point where a browser cookie becomes a
+scan signal, so no value can reach a finding, the Markdown report, or the MCP
+response. A test asserts this directly.
+
+Tracker attribution uses a small, dated host list committed in the repository.
+It labels observed requests in the output and never blocks them. The
+"trackers loaded before consent" finding is a documented heuristic — a fixed or
+sticky overlay naming cookies or consent with an accept/reject control — and it
+returns the matched selector and text excerpt so a human can confirm it.
 
 ## Generated repro output
 
