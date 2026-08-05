@@ -1,8 +1,30 @@
 # Release runbook
 
-This repository remains private until the security-go ticket explicitly approves
-the exact candidate commit. This runbook does not authorize publication,
-registry submission, or a repository visibility change.
+The release workflow is the only supported way to publish `@qualitymax/qmax-mcp`.
+A publish that does not come from it has no provenance attestation and no
+`gitHead`, which breaks the chain the launch gate depends on — see
+[the 0.2.1 release-integrity incident](incidents/2026-08-04-unattested-0.2.1.md).
+
+## Enforced gates
+
+Two steps of this runbook are now checked by machine rather than trusted to a
+human reading it:
+
+- `npm run check` runs `npm run version:sync -- --check` first, so any drift
+  between `package.json`, `package-lock.json`, `server.json`, `smithery.yaml`
+  and `src/metadata.ts` fails both the Quality workflow and the release
+  workflow's `verify-package` and `publish` jobs.
+- `prepublishOnly` runs `scripts/guard-publish.cjs`, which refuses to publish
+  unless the process is a GitHub Actions run that requested `--provenance`.
+- The `version` npm lifecycle script re-synchronizes and stages every metadata
+  surface, so `npm version <patch|minor|major>` cannot leave a half-bumped tree.
+
+The publish guard is a speed bump, not a lock: `npm publish --ignore-scripts`
+skips it. **The lock is npm's per-package publishing setting — require a trusted
+publisher, so the registry itself rejects workstation credentials.** Configure it
+at npmjs.com → the package → Settings → Publishing access.
+
+## Steps
 
 1. Start from a clean, reviewed candidate commit and record its SHA in Linear.
 2. Synchronize public metadata atomically:
@@ -37,3 +59,7 @@ the affected version and reason in Linear, deprecate only that npm version with
 an upgrade message, and publish a tested patched version after a new security
 review. Never overwrite an existing npm version. If registry metadata is wrong,
 correct it through the registry workflow and preserve the incident evidence.
+
+npm does not allow a version number to be reused once published, even after an
+unpublish, so a withdrawn version is spent: recover by releasing the next patch,
+not by reissuing the same number.

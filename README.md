@@ -136,7 +136,7 @@ npm run demo
 
 ## Package and release metadata
 
-`server.json` is the canonical MCP Registry manifest. `npm run validate:registry` checks it against the official schema without publishing anything. Before a release, use `npm run version:sync -- <semver>` and then `npm run version:sync -- --check` to update and verify every public metadata surface together. The release workflow and rollback procedure are documented in [the release runbook](docs/release.md).
+`server.json` is the canonical MCP Registry manifest. `npm run validate:registry` checks it against the official schema without publishing anything. Use `npm run version:sync -- <semver>` to move every public metadata surface — `package.json`, `package-lock.json`, `server.json`, `smithery.yaml` and `src/metadata.ts` — together; `npm run check` verifies they agree and fails on drift, and `npm publish` is restricted to the provenance-backed release workflow. The release workflow and rollback procedure are documented in [the release runbook](docs/release.md).
 
 ## License
 

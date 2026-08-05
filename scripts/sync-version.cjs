@@ -46,10 +46,17 @@ async function writeAtomically(file, contents) {
 }
 
 async function main() {
-  const requestedVersion = process.argv[2];
-  const checkOnly = requestedVersion === '--check';
-  if (!checkOnly && (!requestedVersion || !versionPattern.test(requestedVersion))) {
-    throw new Error('Usage: npm run version:sync -- <semver> | npm run version:sync -- --check');
+  const argument = process.argv[2];
+  const checkOnly = argument === '--check';
+  /**
+   * `npm version` rewrites package.json and package-lock.json before its `version` lifecycle script
+   * runs, so the bump it just made is the version every other surface has to catch up to. Without
+   * this mode a plain `npm version patch` produces exactly the half-bumped tree that shipped as the
+   * unattested 0.2.1: package.json moved, server.json and smithery.yaml did not.
+   */
+  const fromPackage = argument === '--current';
+  if (!checkOnly && !fromPackage && (!argument || !versionPattern.test(argument))) {
+    throw new Error('Usage: npm run version:sync -- <semver> | npm run version:sync -- --current | npm run version:sync -- --check');
   }
 
   const [packageSource, lockfileSource, manifestSource, smitherySource, metadataSource] = await Promise.all([
@@ -78,6 +85,11 @@ async function main() {
     }
     console.log(`Version synchronization passed: ${packageJson.version}`);
     return;
+  }
+
+  const requestedVersion = fromPackage ? packageJson.version : argument;
+  if (!versionPattern.test(requestedVersion || '')) {
+    throw new Error(`package.json declares a version that cannot be synchronized: ${requestedVersion}`);
   }
 
   packageJson.version = requestedVersion;
