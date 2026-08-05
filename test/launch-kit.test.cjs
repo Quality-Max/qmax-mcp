@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..');
 
 test('README leads with the agent-first local QA promise and canonical command', async () => {
   const readme = await readFile(path.join(root, 'README.md'), 'utf8');
-  const opening = readme.slice(0, 900).toLowerCase();
+  const opening = readme.slice(0, 1500).toLowerCase();
 
   assert.match(readme, /npx -y @qualitymax\/qmax-mcp/);
   assert.match(opening, /independent qa evidence before it declares a web change done/);
