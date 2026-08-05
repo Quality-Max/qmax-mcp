@@ -1,6 +1,6 @@
 {
   "name": "@qualitymax/qmax-mcp",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Local QA MCP: scan URLs, inspect pages, generate Playwright repros, and run tests.",
   "mcpName": "io.github.quality-max/qmax-mcp",
   "bin": {
@@ -17,10 +17,11 @@
     "demo": "npm run build && node demo/run.mjs",
     "demo:record": "npm run build && node demo/record.mjs",
     "version:sync": "node scripts/sync-version.cjs",
-    "check": "npm run lint && npm test && npm run validate:registry",
+    "check": "npm run version:sync -- --check && npm run lint && npm test && npm run validate:registry",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
-    "prepublishOnly": "npm run build"
+    "version": "npm run version:sync -- --current && git add package.json package-lock.json server.json smithery.yaml src/metadata.ts",
+    "prepublishOnly": "node scripts/guard-publish.cjs && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
