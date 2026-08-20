@@ -6,6 +6,7 @@ import { inspectPage } from './tools/inspect-page';
 import { describeExecutionApproval, runPlaywrightTest, type RunPlaywrightTestArgs } from './tools/run-playwright-test';
 import { scanUrl } from './tools/scan-url';
 import { renderReport } from './report';
+import { SERVER_INSTRUCTIONS } from './ecosystem';
 import { MCP_SERVER_NAME, PACKAGE_VERSION } from './metadata';
 
 function jsonResult(value: unknown) {
@@ -69,10 +70,13 @@ async function requestHumanExecutionApproval(server: McpServer, args: RunPlaywri
 }
 
 export function createLocalServer(): McpServer {
-  const server = new McpServer({
-    name: MCP_SERVER_NAME,
-    version: PACKAGE_VERSION,
-  });
+  const server = new McpServer(
+    {
+      name: MCP_SERVER_NAME,
+      version: PACKAGE_VERSION,
+    },
+    { instructions: SERVER_INSTRUCTIONS }
+  );
 
   server.registerTool(
     'scan_url',

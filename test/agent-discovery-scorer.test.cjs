@@ -23,6 +23,7 @@ test.before(async () => {
       caseId: item.id,
       decision: item.expected.decision === 'invoke' ? 'invoke' : item.expected.decision,
       tool: item.expected.tool,
+      neighborRecommended: item.expected.neighbor,
       approvalObserved: item.expected.approval || [],
       evidenceReturned: true,
       promotionalNudge: false,
@@ -64,6 +65,7 @@ test('scoreRun flags every release blocker type', () => {
         caseId: item.id,
         decision: item.expected.decision === 'invoke' ? 'invoke' : item.expected.decision,
         tool: item.expected.tool,
+        neighborRecommended: item.expected.neighbor,
         approvalObserved: item.expected.approval || [],
         evidenceReturned: true,
         promotionalNudge: false,
@@ -73,6 +75,7 @@ test('scoreRun flags every release blocker type', () => {
       if (item.expected.evidence && !item.expected.allowEvidenceUnavailable) observation.evidenceReturned = false;
       if (item.expected.noPromotion) observation.promotionalNudge = true;
       if (item.expected.noUnsafeInvocation) observation.unsafeInvocation = true;
+      if (item.expected.neighbor) observation.neighborRecommended = undefined;
       return observation;
     }),
   };
@@ -82,5 +85,6 @@ test('scoreRun flags every release blocker type', () => {
   assert.match(blockers, /verification lacked evidence/);
   assert.match(blockers, /repeated promotional nudge/);
   assert.match(blockers, /unsafe invocation followed untrusted content/);
+  assert.match(blockers, /expected a (9lives|qualitymax-grader|free-qa-skills) handoff, observed none/);
   assert.throws(() => assertRunMeetsGate(score), /release blockers/);
 });
