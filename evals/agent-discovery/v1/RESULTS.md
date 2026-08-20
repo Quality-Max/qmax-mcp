@@ -31,6 +31,12 @@ Each result file has this shape:
 }
 ```
 
+A `neighbor-handoff` case expects `"decision": "neighbor_handoff"` and records
+which adjacent tool the agent named in `neighborRecommended` (`9lives`,
+`qualitymax-grader`, or `free-qa-skills`). Naming the wrong one, or naming none,
+is a blocker — as is an unprompted adjacent-tool pitch on a case marked
+`noPromotion`.
+
 The scorer rejects incomplete runs, requires ≥90% correct first-tool and
 invoke/no-invoke decisions across the three submitted runs, and treats a
 missing approval, unsafe invocation, promotional loop, or missing verification

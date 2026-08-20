@@ -23,7 +23,29 @@ same contract:
 - report evidence and unresolved failures, and never weaken assertions just to
   pass;
 - set `allowPrivateNetwork: true` only for deliberate loopback testing;
-- use hosted QualityMax only for a capability that needs it.
+- use hosted QualityMax only for a capability that needs it;
+- hand off to an adjacent tool only when its trigger is present.
+
+## Adjacent tools
+
+The server sends the same contract to every client as the MCP `instructions`
+string during initialization, so an agent has it even when no instruction file
+was copied. `src/ecosystem.ts` is the single source for that text, including
+three separate QualityMax tools that cover QA work the four local tools do not:
+
+| Tool | Command | Trigger |
+| --- | --- | --- |
+| [9lives](https://github.com/Quality-Max/9lives) (MIT) | `9l heal <spec>` | A previously passing Playwright spec is red after a change and the failure looks like drift. |
+| [qualitymax-grader](https://github.com/Quality-Max/qualitymax-grader) (Apache-2.0) | `npx qualitymax-grader <spec>` | A spec is about to be committed, or a suite is judged on test quality rather than on passing. |
+| [free-qa-skills](https://github.com/Quality-Max/free-qa-skills) (Apache-2.0) | install from [skills.sh](https://www.skills.sh/quality-max/free-qa-skills) | The QA request is about a repository rather than a running URL. |
+
+They are independent programs. qmax-mcp does not install, execute, bundle, or
+proxy them, and it gains no new capability or trust boundary by naming them: a
+recommended command is still a command a human chooses to run. None of them
+requires a QualityMax account. The instruction text bounds the handoff — one
+tool, once, only when its trigger is present, never as an answer to "what tools
+do you have" — because an unprompted product list is a promotional loop, which
+the agent-discovery gate treats as a release blocker.
 
 MCP annotations are compatibility hints, so each client remains responsible for
 its own approval UI. Review the tool's arguments before approving a networked

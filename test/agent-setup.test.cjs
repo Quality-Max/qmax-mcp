@@ -57,6 +57,11 @@ test('agent instructions require evidence and preserve the approval boundary', a
     assert.match(instruction, /web-verification request/i);
     assert.match(instruction, /concise clarification/i);
     assert.match(instruction, /unrelated work/i);
+    assert.match(instruction, /9l heal <spec>/);
+    assert.match(instruction, /npx qualitymax-grader <spec>/);
+    assert.match(instruction, /free-qa-skills/);
+    assert.match(instruction, /does not install, run, or proxy them/);
+    assert.match(instruction, /only when its trigger is present, and only once/);
   }
 });
 
