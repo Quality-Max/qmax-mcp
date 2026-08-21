@@ -49,8 +49,20 @@ at npmjs.com → the package → Settings → Publishing access.
    verifies the package version, and uses the resulting SHA in every job. It
    uses npm trusted publishing with provenance; it does not use a long-lived
    npm token.
-6. Record the package version, SHA, provenance link, registry metadata, test
+6. Publish the MCP Registry entry, from the same tag, after npm has the
+   version: dispatch **Publish to MCP Registry** with `release_tag` set to that
+   tag. It repeats the immutable-tag gate, re-checks metadata synchronization
+   and the `server.json` schema, refuses to run until `npm view` reports the
+   exact version and a `mcpName` matching `server.json`, and confirms the live
+   entry afterwards. It authenticates with GitHub OIDC, so there is no registry
+   token in this repository.
+7. Record the package version, SHA, provenance link, registry metadata, test
    results, rollback owner, and all evidence URLs in the Linear ticket.
+
+The registry entry is a pointer, not a copy: it advertises an npm version and
+carries no artifact of its own. Publishing it before npm has the version
+advertises something nobody can install, which is why it is a separate dispatch
+rather than a step inside the release workflow.
 
 ## Rollback
 
