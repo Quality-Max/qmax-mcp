@@ -6,7 +6,7 @@ import { inspectPage } from './tools/inspect-page';
 import { describeExecutionApproval, runPlaywrightTest, type RunPlaywrightTestArgs } from './tools/run-playwright-test';
 import { scanUrl } from './tools/scan-url';
 import { renderReport } from './report';
-import { SERVER_INSTRUCTIONS } from './ecosystem';
+import { renderServerInstructions } from './ecosystem';
 import { MCP_SERVER_NAME, PACKAGE_VERSION } from './metadata';
 
 function jsonResult(value: unknown) {
@@ -69,13 +69,31 @@ async function requestHumanExecutionApproval(server: McpServer, args: RunPlaywri
   };
 }
 
-export function createLocalServer(): McpServer {
+export type LocalServerOptions = {
+  /** Execute supplied Playwright tests without a per-run MCP human elicitation. */
+  unattended?: boolean;
+};
+
+async function authorizeExecution(server: McpServer, args: RunPlaywrightTestArgs, unattended: boolean) {
+  if (!unattended) return requestHumanExecutionApproval(server, args);
+
+  const authorization = await describeExecutionApproval(args);
+  return {
+    mechanism: 'unattended-cli-opt-in-v1',
+    digest: authorization.digest,
+    target: authorization.target,
+    client: server.server.getClientVersion()?.name || 'unknown-client',
+    unattended: true,
+  };
+}
+
+export function createLocalServer(options: LocalServerOptions = {}): McpServer {
   const server = new McpServer(
     {
       name: MCP_SERVER_NAME,
       version: PACKAGE_VERSION,
     },
-    { instructions: SERVER_INSTRUCTIONS }
+    { instructions: renderServerInstructions(options) }
   );
 
   server.registerTool(
@@ -176,8 +194,9 @@ export function createLocalServer(): McpServer {
     'run_playwright_test',
     {
       title: 'Run Playwright Test',
-      description:
-        'Execute supplied local Playwright code or a local test file. This is a code-execution and artifact-writing boundary: qmax-mcp first requires an MCP human-approval elicitation bound to the exact test digest. The runner may make outbound network requests requested by the test.',
+      description: options.unattended
+        ? 'Execute supplied local Playwright code or a local test file. This server was explicitly started with --unattended, so no per-run human approval is requested. The exact test is still snapshotted and digest-bound. Execution writes artifacts and may make outbound network requests requested by the test.'
+        : 'Execute supplied local Playwright code or a local test file. This is a code-execution and artifact-writing boundary: qmax-mcp first requires an MCP human-approval elicitation bound to the exact test digest. The runner may make outbound network requests requested by the test.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
@@ -196,7 +215,7 @@ export function createLocalServer(): McpServer {
       },
     },
     async (args, extra) => {
-      const approval = await requestHumanExecutionApproval(server, args);
+      const approval = await authorizeExecution(server, args, options.unattended === true);
       const result = await runPlaywrightTest(args, { signal: extra.signal, approvalDigest: approval.digest });
       return jsonResult({ ...result, approval });
     }
@@ -205,8 +224,12 @@ export function createLocalServer(): McpServer {
   return server;
 }
 
-export async function runLocalServer(): Promise<void> {
-  const server = createLocalServer();
-  process.stderr.write('qmax-mcp: local QA MCP server running over stdio\n');
+export async function runLocalServer(options: LocalServerOptions = {}): Promise<void> {
+  const server = createLocalServer(options);
+  process.stderr.write(
+    options.unattended
+      ? 'qmax-mcp: local QA MCP server running over stdio in UNATTENDED execution mode\n'
+      : 'qmax-mcp: local QA MCP server running over stdio\n'
+  );
   await server.connect(new StdioServerTransport());
 }

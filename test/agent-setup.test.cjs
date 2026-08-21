@@ -35,7 +35,7 @@ test('agent setup JSON fixtures use the canonical local-first package command', 
   });
 });
 
-test('agent instructions require evidence and preserve the approval boundary', async () => {
+test('agent instructions require evidence and document the approval-mode boundary', async () => {
   const files = [
     'AGENTS.md',
     'examples/agent-setup/claude/CLAUDE.md',
@@ -50,6 +50,7 @@ test('agent instructions require evidence and preserve the approval boundary', a
     assert.match(instruction, /evidence/i);
     assert.match(instruction, /failure/i);
     assert.match(instruction, /approval/i);
+    assert.match(instruction, /--unattended/);
     assert.match(instruction, /assertion/i);
     assert.match(instruction, /allowPrivateNetwork: true/);
     assert.match(instruction, /caller-side consent/i);

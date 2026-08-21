@@ -88,6 +88,7 @@ test('two MCP client fixtures receive the locked safety annotations and descript
     assert.equal(generated.inputSchema.properties.overwrite.type, 'boolean');
     assert.match(run.description, /code-execution and artifact-writing boundary/);
     assert.equal(run.inputSchema.properties.executionAcknowledged, undefined);
+    assert.equal(run.inputSchema.properties.unattended, undefined);
     assert.match(run.description, /human-approval elicitation/i);
     await client.close();
   }
@@ -137,6 +138,37 @@ test('code execution requires a client-visible human approval elicitation bound 
   }
 });
 
+test('explicit unattended mode executes without elicitation and returns a visible authorization record', async () => {
+  const server = createLocalServer({ unattended: true });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'unattended-fixture', version: '1.0.0' });
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  let outputDir;
+
+  try {
+    const tools = (await client.listTools()).tools;
+    const run = tools.find((tool) => tool.name === 'run_playwright_test');
+    assert.match(run.description, /explicitly started with --unattended/i);
+    assert.match(client.getInstructions(), /Do not pause to\s+request one/);
+
+    const source =
+      "import { test, expect } from '@playwright/test'; test('unattended', () => expect(true).toBe(true));";
+    const response = await client.callTool({ name: 'run_playwright_test', arguments: { code: source } });
+    assert.equal(response.isError, undefined);
+    const result = JSON.parse(response.content[0].text);
+    outputDir = result.outputDir;
+    assert.equal(result.status, 'passed', JSON.stringify(result));
+    assert.equal(result.approval.mechanism, 'unattended-cli-opt-in-v1');
+    assert.equal(result.approval.client, 'unattended-fixture');
+    assert.equal(result.approval.unattended, true);
+    assert.match(result.approval.digest, /^[a-f0-9]{64}$/);
+  } finally {
+    await client.close();
+    if (outputDir) await rm(outputDir, { recursive: true, force: true });
+  }
+});
+
 test('code execution fails closed without elicitation support and rejects a changed approved file', async () => {
   const source = "import { test, expect } from '@playwright/test'; test('approval', () => expect(true).toBe(true));";
   const server = createLocalServer();
@@ -161,7 +193,7 @@ test('code execution fails closed without elicitation support and rejects a chan
     await writeFile('approved.spec.ts', `${source}\n// changed after approval`, 'utf8');
     await assert.rejects(
       () => runPlaywrightTest({ testPath: 'approved.spec.ts' }, { approvalDigest: approval.digest }),
-      /changed after human approval/
+      /changed after execution authorization/
     );
   } finally {
     process.chdir(originalDirectory);
@@ -177,6 +209,7 @@ test('client setup rendering never reads or displays an environment-sourced cred
     const rendered = renderClients();
     assert.equal(rendered.includes('test-only-client-config-canary'), false);
     assert.match(rendered, /QUALITYMAX_API_KEY": "<your-api-key>"/);
+    assert.match(rendered, /--unattended/);
   } finally {
     if (previous === undefined) delete process.env[key];
     else process.env[key] = previous;
