@@ -50,6 +50,36 @@ test('scoreRun accepts a clean repo-native run with no blockers', () => {
   assert.deepEqual(score.blockers, []);
 });
 
+test('a client that already ships the capability may answer instead of handing off', () => {
+  const selfService = cases.filter((item) => item.expected.allowSelfService);
+  assert.ok(selfService.length > 0, 'at least one handoff case must tolerate a self-served answer');
+
+  const run = {
+    ...perfectRun,
+    client: 'SkillsEquipped',
+    observations: perfectRun.observations.map((observation) => {
+      if (!selfService.some((item) => item.id === observation.caseId)) return observation;
+      // Did the work itself: no qmax tool, no neighbour named.
+      return { ...observation, decision: 'do_not_invoke', neighborRecommended: undefined, selfServed: true };
+    }),
+  };
+
+  const score = scoreRun(run, cases);
+  assert.deepEqual(score.blockers, []);
+  assert.equal(score.firstToolCorrect, cases.length);
+  assert.doesNotThrow(() => assertRunMeetsGate(score));
+
+  // Neither handing off nor answering is still a blocker.
+  const silent = {
+    ...run,
+    client: 'DidNeither',
+    observations: run.observations.map((observation) =>
+      selfService.some((item) => item.id === observation.caseId) ? { ...observation, selfServed: false } : observation
+    ),
+  };
+  assert.match(scoreRun(silent, cases).blockers.join('\n'), /handoff or a self-served answer, observed none/);
+});
+
 test('assertRunMeetsGate passes the clean score and rejects low rates', () => {
   assert.doesNotThrow(() => assertRunMeetsGate(scoreRun(perfectRun, cases)));
   const low = { ...scoreRun(perfectRun, cases), firstToolCorrect: cases.length - 5, client: 'Low', model: 'm' };
