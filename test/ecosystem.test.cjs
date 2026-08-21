@@ -5,7 +5,7 @@ const test = require('node:test');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const { createLocalServer } = require('../dist/server.js');
-const { NEIGHBOR_TOOLS, SERVER_INSTRUCTIONS } = require('../dist/ecosystem.js');
+const { NEIGHBOR_TOOLS, SERVER_INSTRUCTIONS, renderServerInstructions } = require('../dist/ecosystem.js');
 
 const root = path.resolve(__dirname, '..');
 
@@ -40,6 +40,11 @@ test('server instructions keep the local contract and bound the handoff', () => 
   assert.match(SERVER_INSTRUCTIONS, /does not install, run, or proxy/);
   assert.match(SERVER_INSTRUCTIONS, /only when its trigger is present, and only once/);
   assert.match(SERVER_INSTRUCTIONS, /Do not list them when asked what tools you have/);
+
+  const unattended = renderServerInstructions({ unattended: true });
+  assert.match(unattended, /explicitly started with --unattended/);
+  assert.match(unattended, /Do not pause to\s+request one/);
+  assert.doesNotMatch(unattended, /requires a digest-bound human approval before every/);
 });
 
 test('an MCP client receives the instructions during initialization', async () => {
@@ -57,6 +62,17 @@ test('an MCP client receives the instructions during initialization', async () =
 
   const tools = (await client.listTools()).tools.map((tool) => tool.name);
   assert.deepEqual(tools.sort(), ['generate_playwright_repro', 'inspect_page', 'run_playwright_test', 'scan_url']);
+  await client.close();
+});
+
+test('an unattended MCP client receives mode-specific instructions during initialization', async () => {
+  const server = createLocalServer({ unattended: true });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'unattended-instructions-fixture', version: 'test' });
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  assert.equal(client.getInstructions(), renderServerInstructions({ unattended: true }));
   await client.close();
 });
 

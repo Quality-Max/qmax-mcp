@@ -80,7 +80,7 @@ Then every finding follows with its severity, a copy-pasteable reproduction, and
 | `scan_url` | Scan a URL for console, network, link, accessibility, SEO, security-header, cookie/tracker, mixed-content, page-weight, and Core Web Vitals findings. | It makes outbound requests and can write a screenshot. |
 | `inspect_page` | Return page structure and role/name locator candidates. | It makes outbound requests. |
 | `generate_playwright_repro` | Write a deterministic, workspace-contained Playwright repro. | It writes below `.qmax-mcp/repros`; overwrites are explicit. |
-| `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; requires an accepted, digest-bound MCP human-approval elicitation. |
+| `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; by default it requires an accepted, digest-bound MCP human-approval elicitation. |
 
 The local server does not require an account. [Hosted proxy mode](#hosted-proxy-mode) is a separate, opt-in connection for account-backed QualityMax capabilities; do not add it unless that capability is needed.
 
@@ -92,7 +92,32 @@ Copy a ready-made, no-credential configuration and the accompanying instruction 
 | --- | --- | --- | --- |
 | [`claude/.mcp.json`](examples/agent-setup/claude/.mcp.json) | [`cursor/.cursor`](examples/agent-setup/cursor/.cursor) | [`codex/.codex/config.toml`](examples/agent-setup/codex/.codex/config.toml) | [`vscode/.vscode/mcp.json`](examples/agent-setup/vscode/.vscode/mcp.json) |
 
-The [agent setup guide](docs/agent-setup.md) explains the expected approval surfaces and has a generic stdio configuration. The root [`AGENTS.md`](AGENTS.md) is the portable instruction: collect evidence, report unresolved failures, and request approval before mutating files or executing supplied code.
+The [agent setup guide](docs/agent-setup.md) explains the expected approval surfaces and has a generic stdio configuration. The root [`AGENTS.md`](AGENTS.md) is the portable instruction: collect evidence, report unresolved failures, and request approval before mutating files or executing supplied code unless the server explicitly advertises unattended mode.
+
+### Unattended automation
+
+For a trusted, isolated automation environment where no human can answer MCP
+elicitations, start the server with the explicit `--unattended` flag:
+
+```json
+{
+  "mcpServers": {
+    "qmax": {
+      "command": "npx",
+      "args": ["-y", "@qualitymax/qmax-mcp", "--unattended"]
+    }
+  }
+}
+```
+
+For Codex TOML, use `args = ["-y", "@qualitymax/qmax-mcp", "--unattended"]`.
+This process-start opt-in authorizes every `run_playwright_test` call handled by
+that server; it is intentionally not available as a tool argument or
+environment variable. The server advertises the active mode to the agent,
+prints an `UNATTENDED` startup warning, and returns
+`approval.mechanism: "unattended-cli-opt-in-v1"` with each execution. The exact
+test is still snapshotted and digest-checked, and the existing workspace,
+environment, timeout, cancellation, and output controls remain active.
 
 ## Adjacent QualityMax tools
 
@@ -104,13 +129,13 @@ The server tells a connected agent about three separate QualityMax tools that co
 | [qualitymax-grader](https://github.com/Quality-Max/qualitymax-grader) (Apache-2.0) | `npx qualitymax-grader <spec>` | A spec is about to be committed, or a suite is judged on test quality rather than on passing. Offline A-F grade, no model or network. |
 | [free-qa-skills](https://github.com/Quality-Max/free-qa-skills) (Apache-2.0) | install from [skills.sh](https://www.skills.sh/quality-max/free-qa-skills) | The QA request is about a repository rather than a running URL, or the agent has no MCP server available. |
 
-Together with the local tools they form one loop: `scan_url` finds the failure, `generate_playwright_repro` writes the spec, `qualitymax-grader` scores it before it lands, `run_playwright_test` executes it behind approval, and `9lives` heals it when a later change makes it drift.
+Together with the local tools they form one loop: `scan_url` finds the failure, `generate_playwright_repro` writes the spec, `qualitymax-grader` scores it before it lands, `run_playwright_test` executes it under the server's selected authorization mode, and `9lives` heals it when a later change makes it drift.
 
 ## Safety and honest limits
 
 - Local scanning is networked. Private targets are denied by default; `allowPrivateNetwork: true` is only deliberate caller-side consent for a narrow loopback target.
 - Generated repros stay in a controlled workspace directory. Test runs use a minimal environment and controlled artifact directory.
-- `run_playwright_test` uses MCP form elicitation before execution. The server displays the target, side effects, and a SHA-256 digest to the client, and runs only after the client returns an accepted human approval for that exact digest. Clients without form-elicitation support fail closed; a bare caller-supplied boolean is not accepted as proof.
+- By default, `run_playwright_test` uses MCP form elicitation before execution. The server displays the target, side effects, and a SHA-256 digest to the client, and runs only after the client returns an accepted human approval for that exact digest. Clients without form-elicitation support fail closed; a bare caller-supplied boolean is not accepted as proof. `--unattended` is the explicit process-level exception for isolated automation and permits supplied code to run with the local user's filesystem and network permissions without another human prompt.
 - Read the full [MCP safety contract](docs/mcp-safety.md) and [security threat model](docs/security-threat-model.md) before publishing or enabling hosted capabilities.
 
 ## Architecture

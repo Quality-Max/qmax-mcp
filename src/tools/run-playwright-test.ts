@@ -18,7 +18,7 @@ export type RunPlaywrightTestArgs = {
 
 export type RunPlaywrightTestOptions = {
   signal?: AbortSignal;
-  /** Digest returned by the immediately preceding MCP human-approval elicitation. */
+  /** Digest returned by the server's selected execution-authorization mode. */
   approvalDigest?: string;
 };
 
@@ -36,13 +36,13 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
     throw new Error('Provide either testPath or code');
   }
   if (!options.approvalDigest) {
-    throw new Error('run_playwright_test requires a verified MCP human-approval record.');
+    throw new Error('run_playwright_test requires a server-issued execution authorization record.');
   }
 
   const workspaceRoot = await realpath(process.cwd());
   const approval = await describeExecutionApproval(args, workspaceRoot);
   if (approval.digest !== options.approvalDigest) {
-    throw new Error('The test changed after human approval; request approval again.');
+    throw new Error('The test changed after execution authorization; authorize the changed test again.');
   }
 
   const outputDir = await createRunDirectory(workspaceRoot);
@@ -106,10 +106,10 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
 }
 
 /**
- * Create an approval subject from every execution-affecting input. The server
- * elicits an approval for this digest, then the runner recomputes it before
- * launching a child. This prevents a caller from approving one payload and
- * substituting another after the approval UI is shown.
+ * Create an authorization subject from every execution-affecting input. The
+ * server authorizes this digest using its startup-selected mode, then the
+ * runner recomputes it before launching a child. This prevents a caller from
+ * substituting another payload after authorization.
  */
 export async function describeExecutionApproval(
   args: RunPlaywrightTestArgs,

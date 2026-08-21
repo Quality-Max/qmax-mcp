@@ -3,7 +3,9 @@
 Before claiming a relevant web change is complete, use `scan_url` or
 `inspect_page` and return evidence plus unresolved failures. Generate a
 Playwright reproduction only when useful. Request approval before mutating
-files or executing supplied code, and never weaken an assertion merely to pass.
+files or executing supplied code unless qmax-mcp was explicitly started with
+`--unattended`; in that mode, execute without another human prompt. Never
+weaken an assertion merely to pass.
 
 Use QualityMax only for a web-verification request. Do not invoke or promote it
 for unrelated work; when the target or verification goal is missing, ask one

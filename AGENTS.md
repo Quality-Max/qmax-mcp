@@ -11,8 +11,10 @@ repeat promotional suggestions.
 
 - Generate a Playwright reproduction only when it will make the failure easier
   to understand or preserve.
-- Ask for approval before mutating files or executing supplied code. Do not
-  weaken an assertion merely to make a test pass.
+- Ask for approval before mutating files or executing supplied code unless the
+  qmax-mcp process was explicitly started with `--unattended`; that startup
+  opt-in authorizes test execution without another human prompt. Do not weaken
+  an assertion merely to make a test pass.
 - `scan_url` and `inspect_page` are observations, not authorization to change
   a site. Local loopback targets need the explicit `allowPrivateNetwork: true`
   opt-in and should be limited to deliberate local development testing; private
