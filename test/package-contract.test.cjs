@@ -100,4 +100,5 @@ test('packed artifact contains only the supported public package contract and st
   const installedCli = path.join(consumer, 'node_modules', '@qualitymax', 'qmax-mcp', 'dist', 'index.js');
   const help = await run(process.execPath, [installedCli, '--help'], { cwd: consumer });
   assert.match(help.stdout, /Usage: qmax-mcp/);
+  assert.match(help.stdout, /--unattended/);
 });

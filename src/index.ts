@@ -16,20 +16,22 @@ program
   .description('QualityMax local QA MCP server')
   .version(PACKAGE_VERSION)
   .option('--clients', 'Print copy-paste MCP client configs and exit')
-  .action(async (options: { clients?: boolean }) => {
+  .option('--unattended', 'Run supplied Playwright tests without per-run human approval')
+  .action(async (options: { clients?: boolean; unattended?: boolean }) => {
     if (options.clients) {
       printClients();
       return;
     }
 
-    await runLocalServer();
+    await runLocalServer({ unattended: options.unattended });
   });
 
 program
   .command('serve')
   .description('Start the local-first QA MCP server over stdio')
-  .action(async () => {
-    await runLocalServer();
+  .option('--unattended', 'Run supplied Playwright tests without per-run human approval')
+  .action(async (options: { unattended?: boolean }) => {
+    await runLocalServer({ unattended: options.unattended ?? program.opts<{ unattended?: boolean }>().unattended });
   });
 
 program

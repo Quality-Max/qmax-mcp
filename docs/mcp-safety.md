@@ -10,7 +10,7 @@ both the annotation flags and every tool description.
 | `scan_url` (cookie check) | Reads the scan browser's own cookie jar | No write | No | Cookie names and flags only; values are never returned |
 | `inspect_page` | Outbound browser requests | No intended write | No | Approve target inspection |
 | `generate_playwright_repro` | None | Writes under `.qmax-mcp/repros` | No | Approve file creation or explicit overwrite |
-| `run_playwright_test` | May be requested by supplied test code | Writes controlled run artifacts | Yes | Require an accepted MCP form elicitation for the exact execution digest |
+| `run_playwright_test` | May be requested by supplied test code | Writes controlled run artifacts | Yes | Default: require an accepted MCP form elicitation for the exact execution digest. Explicit `--unattended`: process-start authorization replaces the per-run prompt. |
 
 The MCP-standard `readOnlyHint`, `destructiveHint`, `idempotentHint`, and
 `openWorldHint` values are locked by a protocol-level tool-list test using two
@@ -59,19 +59,29 @@ host path. Generated repros are durable workspace artifacts; remove the
 path, `BASE_URL` from the request, and a runner marker. It does not inherit the
 parent process environment. A caller may deliberately add non-sensitive values
 with `allowedEnv`; reserved process-control variables cannot be replaced.
-Before each call, the server issues an MCP form elicitation that states the
-execution target, its code-execution/filesystem/network effects, and a SHA-256
-digest of the test source plus every execution-affecting option. It runs only
-when the client returns `accept` with `approved: true`; the result includes the
-mechanism, digest, target, and client name as an approval record. A changed file
-or option has a different digest and must be approved again. The runner executes
-an approved snapshot, so changing a file after the approval screen cannot swap
-the direct test source.
+In the default mode, the server issues an MCP form elicitation before each call.
+It states the execution target, its code-execution/filesystem/network effects,
+and a SHA-256 digest of the test source plus every execution-affecting option.
+It runs only when the client returns `accept` with `approved: true`; the result
+includes the mechanism, digest, target, and client name as an approval record.
+A changed file or option has a different digest and must be authorized again.
+The runner executes an authorized snapshot, so changing a file after the
+authorization decision cannot swap the direct test source.
 
 This is client-visible, protocol-verifiable consent—not identity attestation.
 It relies on a client that faithfully presents MCP form elicitations to a human.
 Clients without that capability fail closed, and qmax-mcp does not treat a tool
 argument or an agent assertion as human approval.
+
+Starting the server with `--unattended` deliberately replaces the per-run form
+with a process-start authorization. This flag is accepted only on the command
+line, cannot be enabled by a tool request or environment variable, is announced
+in server instructions and stderr, and is recorded as
+`unattended-cli-opt-in-v1` in every execution result. It does not weaken the
+digest/snapshot, workspace path, child environment, timeout, cancellation, or
+output controls. It does mean any client allowed to call that server can execute
+supplied Playwright code with the local user's filesystem and network
+permissions without a human reviewing each call.
 
 The runner has an independent wall-clock limit (`wallClockTimeoutMs`) and
 terminates its process group on timeout or MCP request cancellation. It keeps
@@ -89,7 +99,8 @@ QualityMax tools — [9lives](https://github.com/Quality-Max/9lives),
 [free-qa-skills](https://github.com/Quality-Max/free-qa-skills) — for QA work
 the four local tools do not cover. This adds no action to the table above. The
 server never downloads, installs, spawns, or proxies them, and `run_playwright_test`
-remains the only execution path, still gated by its digest-bound approval. A
+remains the only execution path, still gated by the server's startup-selected,
+digest-bound authorization mode. A
 named command is text in an agent's answer: whoever runs it makes that decision
 outside qmax-mcp, under their own tooling's approval rules.
 

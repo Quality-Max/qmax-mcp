@@ -9,6 +9,11 @@ Local-first mode runs deterministic QA tools on your machine. No QualityMax
 API key is required for scan_url, inspect_page, generate_playwright_repro, or
 run_playwright_test.
 
+For an isolated automation runner with no human available for per-run approval,
+append "--unattended" to the local server args. This process-wide opt-in allows
+supplied Playwright code to execute without another prompt; keep the default
+configuration for interactive or untrusted workspaces.
+
 ─────────────────────────────────────────────
 Claude Code  (.mcp.json in your project root)
 ─────────────────────────────────────────────

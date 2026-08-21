@@ -19,7 +19,8 @@ same contract:
 
 - observe with `scan_url` or `inspect_page`;
 - create a reproduction only when it is useful;
-- request approval before file mutation or supplied-code execution;
+- request approval before file mutation or supplied-code execution unless the
+  server was explicitly started with `--unattended`;
 - report evidence and unresolved failures, and never weaken assertions just to
   pass;
 - set `allowPrivateNetwork: true` only for deliberate loopback testing;
@@ -52,12 +53,34 @@ its own approval UI. Review the tool's arguments before approving a networked
 scan, file generation, or test execution. See the [MCP safety
 contract](mcp-safety.md) for the exact action boundary.
 
+## Unattended automation
+
+When an isolated automation runner has no human available to answer an MCP form
+elicitation, append `--unattended` to the server arguments:
+
+```json
+"args": ["-y", "@qualitymax/qmax-mcp", "--unattended"]
+```
+
+The Codex equivalent is:
+
+```toml
+args = ["-y", "@qualitymax/qmax-mcp", "--unattended"]
+```
+
+This is a process-wide authorization for supplied Playwright code. It is not a
+per-call tool argument, so an agent or scanned page cannot enable it. The server
+sends mode-specific instructions telling the agent not to pause for a human,
+emits a visible startup warning, and labels each execution record as
+`unattended-cli-opt-in-v1`. Keep the default configuration for interactive or
+untrusted workspaces.
+
 ## Client files
 
 | Client | Copy into a clean workspace | Expected approval UX | Local version and validation |
 | --- | --- | --- | --- |
 | Claude Code | [`claude/.mcp.json`](../examples/agent-setup/claude/.mcp.json) and [`claude/CLAUDE.md`](../examples/agent-setup/claude/CLAUDE.md) | Project MCP servers require user approval before use. | 2.1.220 installed; JSON fixture parser in CI. |
-| Cursor | [`cursor/.cursor`](../examples/agent-setup/cursor/.cursor) | MCP tools ask for approval by default; do not enable auto-run. | 3.7.36 installed; JSON fixture parser in CI. |
+| Cursor | [`cursor/.cursor`](../examples/agent-setup/cursor/.cursor) | MCP tools ask for approval by default; use `--unattended` only for an isolated automation process. | 3.7.36 installed; JSON fixture parser in CI. |
 | Codex | [`codex/.codex/config.toml`](../examples/agent-setup/codex/.codex/config.toml) and [`codex/AGENTS.md`](../examples/agent-setup/codex/AGENTS.md) | The configured server runs as a local stdio process; review tool/command approvals. | CLI 0.144.5 installed; TOML-shape test in CI. |
 | VS Code | [`vscode/.vscode/mcp.json`](../examples/agent-setup/vscode/.vscode/mcp.json) and [`vscode/.github/copilot-instructions.md`](../examples/agent-setup/vscode/.github/copilot-instructions.md) | Review proposed MCP tool invocations in the agent chat. | 1.123.0 installed; JSON fixture parser in CI. |
 | Other stdio MCP clients | [`generic/mcp.json`](../examples/agent-setup/generic/mcp.json) | Client-specific; review every tool invocation. | Standard `mcpServers` stdio shape; JSON fixture parser in CI. |
