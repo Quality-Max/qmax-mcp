@@ -10,6 +10,10 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.4.0 — 2026-08-21
+
 ### Added
 
 - `--unattended` on `qmax-mcp` and `qmax-mcp serve` runs supplied Playwright
@@ -19,6 +23,18 @@ entry says what changes for a connected agent.
   mechanism is recorded as `unattended-cli-opt-in-v1` so a run is
   distinguishable after the fact. Server instructions are rendered per mode, so
   an agent is told which one it is connected to.
+
+  Read [the safety contract](docs/mcp-safety.md) before enabling it: in this
+  mode any client permitted to call the server can execute supplied Playwright
+  code with the local user's filesystem and network permissions, without a human
+  reviewing each call. The default mode is unchanged.
+
+### Repository, not shipped in the package
+
+- A changelog ([#41]), a `Publish to MCP Registry` workflow authenticating with
+  GitHub OIDC ([#43]), and an agent-discovery corpus fix so a client that
+  already ships an adjacent tool's capability may answer directly instead of
+  handing off ([#42]).
 
 ## 0.3.0 — 2026-08-21
 
@@ -100,3 +116,6 @@ account, API key, or hosted service required.
 [#32]: https://github.com/Quality-Max/qmax-mcp/pull/32
 [#37]: https://github.com/Quality-Max/qmax-mcp/pull/37
 [#40]: https://github.com/Quality-Max/qmax-mcp/pull/40
+[#41]: https://github.com/Quality-Max/qmax-mcp/pull/41
+[#42]: https://github.com/Quality-Max/qmax-mcp/pull/42
+[#43]: https://github.com/Quality-Max/qmax-mcp/pull/43
