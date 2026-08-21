@@ -81,6 +81,18 @@ the local artifact directory and are deliberately withheld from the MCP
 response, because supplied test code can print arbitrary secret formats. The
 response provides only a content-free indicator and numeric Playwright counts.
 
+## Adjacent-tool recommendations
+
+The MCP `instructions` string sent at initialization names three separate
+QualityMax tools — [9lives](https://github.com/Quality-Max/9lives),
+[qualitymax-grader](https://github.com/Quality-Max/qualitymax-grader), and
+[free-qa-skills](https://github.com/Quality-Max/free-qa-skills) — for QA work
+the four local tools do not cover. This adds no action to the table above. The
+server never downloads, installs, spawns, or proxies them, and `run_playwright_test`
+remains the only execution path, still gated by its digest-bound approval. A
+named command is text in an agent's answer: whoever runs it makes that decision
+outside qmax-mcp, under their own tooling's approval rules.
+
 ## Hosted proxy boundary
 
 `qmax-mcp proxy` is the only hosted path. It always sends its bearer credential

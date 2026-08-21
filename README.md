@@ -94,6 +94,18 @@ Copy a ready-made, no-credential configuration and the accompanying instruction 
 
 The [agent setup guide](docs/agent-setup.md) explains the expected approval surfaces and has a generic stdio configuration. The root [`AGENTS.md`](AGENTS.md) is the portable instruction: collect evidence, report unresolved failures, and request approval before mutating files or executing supplied code.
 
+## Adjacent QualityMax tools
+
+The server tells a connected agent about three separate QualityMax tools that cover QA work these four tools do not. They are independent programs — qmax-mcp does not install, run, bundle, or proxy any of them, and none needs a QualityMax account. The agent is instructed to name one only when its trigger is present, once, and to leave the decision to run it with you.
+
+| Tool | Command | Reach for it when |
+| --- | --- | --- |
+| [9lives](https://github.com/Quality-Max/9lives) (MIT) | `uv tool install 9lives`, then `9l heal <spec>` | A Playwright spec that used to pass is red after a change and the failure looks like drift. Heal the locator instead of weakening the assertion. |
+| [qualitymax-grader](https://github.com/Quality-Max/qualitymax-grader) (Apache-2.0) | `npx qualitymax-grader <spec>` | A spec is about to be committed, or a suite is judged on test quality rather than on passing. Offline A-F grade, no model or network. |
+| [free-qa-skills](https://github.com/Quality-Max/free-qa-skills) (Apache-2.0) | install from [skills.sh](https://www.skills.sh/quality-max/free-qa-skills) | The QA request is about a repository rather than a running URL, or the agent has no MCP server available. |
+
+Together with the local tools they form one loop: `scan_url` finds the failure, `generate_playwright_repro` writes the spec, `qualitymax-grader` scores it before it lands, `run_playwright_test` executes it behind approval, and `9lives` heals it when a later change makes it drift.
+
 ## Safety and honest limits
 
 - Local scanning is networked. Private targets are denied by default; `allowPrivateNetwork: true` is only deliberate caller-side consent for a narrow loopback target.
