@@ -1,0 +1,115 @@
+name: Publish to MCP Registry
+
+# Runs after the npm release, never before it: the registry entry points at an
+# npm version, so publishing first would advertise a package nobody can install.
+# Dispatch this from the same immutable tag the release workflow used.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable annotated tag already published to npm (for example, v0.3.0).
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  MCP_PUBLISHER_VERSION: v1.8.1
+  MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+
+jobs:
+  resolve-release:
+    name: Resolve immutable release tag
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      package_version: ${{ steps.release.outputs.package_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.release_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: release
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          test "${WORKFLOW_REF}" = "refs/tags/${RELEASE_TAG}"
+          test "$(git cat-file -t "refs/tags/${RELEASE_TAG}")" = tag
+          test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{}")" = "$(git rev-parse HEAD)"
+          test "${RELEASE_TAG}" = "v$(node -p "require('./package.json').version")"
+          release_sha="$(git rev-parse HEAD)"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "${release_sha}" origin/main
+          echo "release_sha=${release_sha}" >> "$GITHUB_OUTPUT"
+          echo "package_version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+  publish-registry:
+    name: Publish server.json with OIDC
+    needs: resolve-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC is the whole point: no registry token to store or rotate.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve-release.outputs.release_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Verify metadata agrees with the tag
+        run: node scripts/sync-version.cjs --check
+
+      - name: Validate server.json against the registry schema
+        run: node scripts/validate-registry-contract.cjs
+
+      - name: Require the npm version to exist first
+        env:
+          PACKAGE_VERSION: ${{ needs.resolve-release.outputs.package_version }}
+        run: |
+          # The registry entry advertises this exact npm version. Refuse to
+          # publish a pointer to something the public registry cannot serve.
+          published="$(npm view "@qualitymax/qmax-mcp@${PACKAGE_VERSION}" version)"
+          test "${published}" = "${PACKAGE_VERSION}"
+          # Ownership check the registry performs: package.json mcpName must
+          # match server.json name, in the published tarball, not just here.
+          mcp_name="$(npm view "@qualitymax/qmax-mcp@${PACKAGE_VERSION}" mcpName)"
+          test "${mcp_name}" = "$(node -p "require('./server.json').name")"
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Authenticate to the MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
+
+      - name: Confirm the entry is live
+        env:
+          PACKAGE_VERSION: ${{ needs.resolve-release.outputs.package_version }}
+        run: |
+          set -euo pipefail
+          SERVER_NAME="$(node -p "require('./server.json').name")"
+          export SERVER_NAME
+          listed="$(curl -fsS "https://registry.modelcontextprotocol.io/v0/servers?search=qmax-mcp" | node -e "
+            let raw = '';
+            process.stdin.on('data', (chunk) => (raw += chunk)).on('end', () => {
+              const found = (JSON.parse(raw).servers || []).find((server) => server.name === process.env.SERVER_NAME);
+              process.stdout.write(found ? found.version : 'missing');
+            });
+          ")"
+          echo "registry reports: ${listed}"
+          test "${listed}" = "${PACKAGE_VERSION}"
