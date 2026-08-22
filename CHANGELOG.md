@@ -10,7 +10,13 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
-Nothing yet.
+### Repository, not shipped in the package
+
+- The `Publish to MCP Registry` liveness check selects the version the registry
+  marks as latest. The list endpoint returns every published version, so
+  matching on server name alone could return a superseded release: the 0.4.2
+  publish succeeded and the check then read `0.4.1` and failed the run. The
+  entry itself was correct both times.
 
 ## 0.4.2 — 2026-08-22
 
