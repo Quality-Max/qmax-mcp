@@ -117,12 +117,23 @@ jobs:
           listed="$(curl -fsS "https://registry.modelcontextprotocol.io/v0/servers?search=qmax-mcp" | node -e "
             let raw = '';
             process.stdin.on('data', (chunk) => (raw += chunk)).on('end', () => {
-              // The list endpoint wraps each result: { server: {...}, _meta: {...} }.
-              // Unwrap before matching, and tolerate a bare entry so this check
-              // does not start lying again if the envelope changes.
-              const entries = (JSON.parse(raw).servers || []).map((entry) => entry.server || entry);
-              const found = entries.find((server) => server.name === process.env.SERVER_NAME);
-              process.stdout.write(found ? found.version : 'missing');
+              // Two shapes to respect. Each result is wrapped as
+              // { server: {...}, _meta: {...} }, and the list returns EVERY
+              // published version, not just the current one - so matching on
+              // name alone can return a superseded release and fail a release
+              // that actually published. Select the entry the registry marks
+              // as latest.
+              const official = 'io.modelcontextprotocol.registry/official';
+              const named = (JSON.parse(raw).servers || [])
+                .map((entry) => ({
+                  server: entry.server || entry,
+                  meta: (entry._meta || {})[official] || {},
+                }))
+                .filter(({ server }) => server.name === process.env.SERVER_NAME);
+              const current =
+                named.find(({ meta }) => meta.isLatest === true) ||
+                (named.length === 1 ? named[0] : undefined);
+              process.stdout.write(current ? current.server.version : 'missing');
             });
           ")"
           echo "registry reports: ${listed}"
