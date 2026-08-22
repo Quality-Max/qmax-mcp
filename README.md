@@ -152,7 +152,7 @@ The local tools are the open, local-first layer. Hosted QualityMax is an explici
 QUALITYMAX_API_KEY="<your-api-key>" npx -y @qualitymax/qmax-mcp proxy
 ```
 
-Only configure the proxy when a hosted-only capability is needed. The bearer credential is sent only to the pinned `https://app.qualitymax.io/api/mcp` endpoint; endpoint overrides and redirects are refused.
+Only configure the proxy when a hosted-only capability is needed. The bearer credential is sent only to the pinned `https://app.qualitymax.io/api/mcp/` endpoint; endpoint overrides and redirects are refused.
 
 ## Support and responsible disclosure
 
@@ -170,6 +170,8 @@ npm run demo
 ```
 
 `npm run demo` starts a dependency-free local fixture, prints a Markdown quality receipt by default, and leaves its generated repro and Playwright artifacts under `.qmax-mcp/` for inspection. Use `npm run demo -- --format json` for a machine-readable receipt.
+
+Candidate work after 0.4.0 — and the boundaries it has to respect — is recorded in the [roadmap](docs/roadmap.md). It is a direction, not a delivery commitment; shipped changes are listed in the [changelog](CHANGELOG.md).
 
 ## Package and release metadata
 

@@ -107,7 +107,7 @@ outside qmax-mcp, under their own tooling's approval rules.
 ## Hosted proxy boundary
 
 `qmax-mcp proxy` is the only hosted path. It always sends its bearer credential
-to `https://app.qualitymax.io/api/mcp`; it has no endpoint flag or environment
+to `https://app.qualitymax.io/api/mcp/`; it has no endpoint flag or environment
 override. HTTP redirects are rejected before a bearer can be forwarded. The
 proxy returns a generic transport error rather than echoing low-level endpoint
 or credential-bearing error text.
