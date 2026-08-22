@@ -36,10 +36,10 @@ test('package, registry, Smithery, and MCP server identities remain synchronized
   assert.equal(manifest.packages[0].identifier, packageJson.name);
   assert.equal(manifest.packages[0].runtimeHint, 'npx');
   assert.equal(manifest.packages[0].transport.type, 'stdio');
-  assert.equal(manifest.name, 'io.github.quality-max/qmax-mcp');
+  assert.equal(manifest.name, 'io.github.Quality-Max/qmax-mcp');
   assert.ok(manifest.description.length <= 100);
   assert.match(metadata, new RegExp(`PACKAGE_VERSION = '${packageJson.version}'`));
-  assert.match(metadata, /MCP_SERVER_NAME = 'io\.github\.quality-max\/qmax-mcp'/);
+  assert.match(metadata, /MCP_SERVER_NAME = 'io\.github\.Quality-Max\/qmax-mcp'/);
   assert.match(smithery, /^name: qmax-mcp$/m);
   assert.match(smithery, new RegExp(`^version: ${packageJson.version}$`, 'm'));
   assert.match(smithery, /args: \["-y", "@qualitymax\/qmax-mcp"\]/);

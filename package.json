@@ -1,8 +1,8 @@
 {
   "name": "@qualitymax/qmax-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Local QA MCP: scan URLs, inspect pages, generate Playwright repros, and run tests.",
-  "mcpName": "io.github.quality-max/qmax-mcp",
+  "mcpName": "io.github.Quality-Max/qmax-mcp",
   "bin": {
     "qmax-mcp": "dist/index.js"
   },
