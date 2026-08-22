@@ -10,7 +10,20 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- Hosted proxy mode, which could not complete a single request. The pinned
+  destination was `https://app.qualitymax.io/api/mcp`, the host answers that
+  path with a 308 to `https://app.qualitymax.io/api/mcp/`, and the proxy
+  refuses redirects on purpose — so every forwarded JSON-RPC message, including
+  `initialize`, failed before it left the process and the caller saw a generic
+  `Hosted proxy transport failed.` The pin now names the canonical path, and
+  the unslashed form is an explicitly rejected value so it cannot be
+  reintroduced as a normalization.
+
+  The local tools were never affected: they make no request to this endpoint
+  and need no account. Nothing about the redirect refusal or the single-host
+  pin has been relaxed.
 
 ## 0.4.1 — 2026-08-21
 

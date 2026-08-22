@@ -1,7 +1,13 @@
 import { createInterface } from 'node:readline';
 
-/** The only endpoint to which this process may send a hosted bearer token. */
-export const HOSTED_MCP_ENDPOINT = 'https://app.qualitymax.io/api/mcp';
+/**
+ * The only endpoint to which this process may send a hosted bearer token.
+ *
+ * The trailing slash is load-bearing. The host answers `/api/mcp` with a 308 to
+ * `/api/mcp/`, and `forwardProxyRequest` refuses redirects on purpose, so the
+ * unslashed form makes every proxied request fail before it is ever sent.
+ */
+export const HOSTED_MCP_ENDPOINT = 'https://app.qualitymax.io/api/mcp/';
 
 type FetchLike = typeof fetch;
 
@@ -23,7 +29,7 @@ export function assertPinnedHostedEndpoint(url: string): URL {
     parsed.port ||
     parsed.username ||
     parsed.password ||
-    parsed.pathname !== '/api/mcp' ||
+    parsed.pathname !== '/api/mcp/' ||
     parsed.search ||
     parsed.hash
   ) {
