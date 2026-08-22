@@ -10,9 +10,13 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.4.2 — 2026-08-22
+
 ### Fixed
 
-- Hosted proxy mode, which could not complete a single request. The pinned
+- Hosted proxy mode, which could not complete a single request ([#48]). The pinned
   destination was `https://app.qualitymax.io/api/mcp`, the host answers that
   path with a 308 to `https://app.qualitymax.io/api/mcp/`, and the proxy
   refuses redirects on purpose — so every forwarded JSON-RPC message, including
@@ -151,3 +155,4 @@ account, API key, or hosted service required.
 [#42]: https://github.com/Quality-Max/qmax-mcp/pull/42
 [#43]: https://github.com/Quality-Max/qmax-mcp/pull/43
 [#46]: https://github.com/Quality-Max/qmax-mcp/pull/46
+[#48]: https://github.com/Quality-Max/qmax-mcp/pull/48
