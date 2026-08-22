@@ -117,7 +117,11 @@ jobs:
           listed="$(curl -fsS "https://registry.modelcontextprotocol.io/v0/servers?search=qmax-mcp" | node -e "
             let raw = '';
             process.stdin.on('data', (chunk) => (raw += chunk)).on('end', () => {
-              const found = (JSON.parse(raw).servers || []).find((server) => server.name === process.env.SERVER_NAME);
+              // The list endpoint wraps each result: { server: {...}, _meta: {...} }.
+              // Unwrap before matching, and tolerate a bare entry so this check
+              // does not start lying again if the envelope changes.
+              const entries = (JSON.parse(raw).servers || []).map((entry) => entry.server || entry);
+              const found = entries.find((server) => server.name === process.env.SERVER_NAME);
               process.stdout.write(found ? found.version : 'missing');
             });
           ")"
