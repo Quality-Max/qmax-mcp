@@ -12,6 +12,24 @@ entry says what changes for a connected agent.
 
 Nothing yet.
 
+## 0.4.1 — 2026-08-21
+
+### Fixed
+
+- The MCP Registry identity now matches the GitHub organization exactly:
+  `io.github.Quality-Max/qmax-mcp`, not `io.github.quality-max/qmax-mcp`
+  ([#46]). Registry namespace authorization is case-sensitive, so every publish
+  attempt for 0.4.0 was rejected — GitHub OIDC grants
+  `io.github.Quality-Max/*`, and the entry asked for a namespace nobody owns.
+  0.4.0 is on npm and installs normally; it is the registry listing that could
+  not be created.
+
+  A connected agent sees the corrected name in the server identity reported at
+  initialization. Nothing about the four tools, their arguments, or their
+  approval boundaries changes. `mcpName` in the published package is what the
+  registry checks ownership against and cannot be edited after publication,
+  which is why this is a new version rather than a metadata correction.
+
 ## 0.4.0 — 2026-08-21
 
 ### Added
@@ -119,3 +137,4 @@ account, API key, or hosted service required.
 [#41]: https://github.com/Quality-Max/qmax-mcp/pull/41
 [#42]: https://github.com/Quality-Max/qmax-mcp/pull/42
 [#43]: https://github.com/Quality-Max/qmax-mcp/pull/43
+[#46]: https://github.com/Quality-Max/qmax-mcp/pull/46
