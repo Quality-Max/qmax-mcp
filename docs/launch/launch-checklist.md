@@ -10,6 +10,7 @@ Use this checklist for the exact release commit. Do not convert a pending contro
 - [ ] Complete QUA-1730’s exact-release-candidate security review. The proxy must stay endpoint-pinned with redirects disabled. Code execution must use digest-bound MCP human approval by default; `--unattended` must remain an explicit process-start opt-in, never a caller assertion or tool argument.
 - [ ] Confirm repository-admin controls from QUA-1731: branch protection and a protected `npm-publish` environment.
 - [ ] Verify the dated first-party sources in the [capability comparison](competitor-comparison.md), or update/remove affected wording.
+- [ ] Reconcile the [distribution channel inventory](directory-inventory.md) against the live services; a channel marked listed must resolve, and a deferral must still state its reason.
 
 ## Announcement copy and routes
 
