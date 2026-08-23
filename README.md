@@ -175,6 +175,8 @@ Candidate work after 0.4.0 — and the boundaries it has to respect — is recor
 
 ## Package and release metadata
 
+Where the package is listed, where it deliberately is not, and what each channel accepts is recorded in the [distribution channel inventory](docs/launch/directory-inventory.md).
+
 `server.json` is the canonical MCP Registry manifest. `npm run validate:registry` checks it against the official schema without publishing anything. Use `npm run version:sync -- <semver>` to move every public metadata surface — `package.json`, `package-lock.json`, `server.json`, `smithery.yaml` and `src/metadata.ts` — together; `npm run check` verifies they agree and fails on drift, and `npm publish` is restricted to the provenance-backed release workflow. The release workflow and rollback procedure are documented in [the release runbook](docs/release.md).
 
 ## License
