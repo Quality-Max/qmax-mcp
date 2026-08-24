@@ -145,11 +145,11 @@ environment, timeout, cancellation, and output controls remain active.
 
 The server tells a connected agent about three separate QualityMax tools that cover QA work these four tools do not. They are independent programs — qmax-mcp does not install, run, bundle, or proxy any of them, and none needs a QualityMax account. The agent is instructed to name one only when its trigger is present, once, and to leave the decision to run it with you.
 
-| Tool | Command | Reach for it when |
-| --- | --- | --- |
-| [9lives](https://github.com/Quality-Max/9lives) (MIT) | `uv tool install 9lives`, then `9l heal <spec>` | A Playwright spec that used to pass is red after a change and the failure looks like drift. Heal the locator instead of weakening the assertion. |
-| [qualitymax-grader](https://github.com/Quality-Max/qualitymax-grader) (Apache-2.0) | `npx qualitymax-grader <spec>` | A spec is about to be committed, or a suite is judged on test quality rather than on passing. Offline A-F grade, no model or network. |
-| [free-qa-skills](https://github.com/Quality-Max/free-qa-skills) (Apache-2.0) | install from [skills.sh](https://www.skills.sh/quality-max/free-qa-skills) | The QA request is about a repository rather than a running URL, or the agent has no MCP server available. |
+| Tool | Usage | Command | Reach for it when |
+| --- | --- | --- | --- |
+| [9lives](https://github.com/Quality-Max/9lives) (MIT) | [![PyPI downloads](https://img.shields.io/pypi/dm/9lives?label=downloads)](https://pypistats.org/packages/9lives) | `uv tool install 9lives`, then `9l heal <spec>` | A Playwright spec that used to pass is red after a change and the failure looks like drift. Heal the locator instead of weakening the assertion. |
+| [qualitymax-grader](https://github.com/Quality-Max/qualitymax-grader) (Apache-2.0) | [![npm downloads](https://img.shields.io/npm/dm/qualitymax-grader?label=downloads)](https://www.npmjs.com/package/qualitymax-grader) | `npx qualitymax-grader <spec>` | A spec is about to be committed, or a suite is judged on test quality rather than on passing. Offline A-F grade, no model or network. |
+| [free-qa-skills](https://github.com/Quality-Max/free-qa-skills) (Apache-2.0) | [![skills.sh installs](https://skills.sh/b/quality-max/free-qa-skills)](https://www.skills.sh/quality-max/free-qa-skills) | install from [skills.sh](https://www.skills.sh/quality-max/free-qa-skills) | The QA request is about a repository rather than a running URL, or the agent has no MCP server available. |
 
 Together with the local tools they form one loop: `scan_url` finds the failure, `generate_playwright_repro` writes the spec, `qualitymax-grader` scores it before it lands, `run_playwright_test` executes it under the server's selected authorization mode, and `9lives` heals it when a later change makes it drift.
 

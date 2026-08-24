@@ -18,6 +18,9 @@ test('the adjacent-tool list stays a bounded, account-free, first-party set', ()
   for (const tool of NEIGHBOR_TOOLS) {
     assert.match(tool.repository, /^https:\/\/github\.com\/Quality-Max\//, `${tool.id} must be a first-party repository`);
     assert.match(tool.license, /^(MIT|Apache-2\.0)$/, `${tool.id} must be open source`);
+    assert.match(tool.usageBadge.image, /^https:\/\//, `${tool.id} badge image must be public`);
+    assert.match(tool.usageBadge.href, /^https:\/\//, `${tool.id} badge target must be public`);
+    assert.ok(tool.usageBadge.alt.length >= 10, `${tool.id} badge needs useful alt text`);
     assert.ok(tool.trigger.length >= 40, `${tool.id} needs a specific handoff trigger`);
     assert.ok(tool.summary.length >= 40, `${tool.id} needs a factual summary`);
   }
@@ -97,4 +100,8 @@ test('documented adjacent tools match the single source in src/ecosystem.ts', as
   const readme = await readFile(path.join(root, 'README.md'), 'utf8');
   assert.doesNotMatch(readme.slice(0, 1500).toLowerCase(), /9lives|grader|skills\.sh/);
   assert.match(readme, /does not install, run, bundle, or proxy any of them/);
+  for (const tool of NEIGHBOR_TOOLS) {
+    const { alt, image, href } = tool.usageBadge;
+    assert.ok(readme.includes(`[![${alt}](${image})](${href})`), `${tool.id} usage badge must match the single source`);
+  }
 });
