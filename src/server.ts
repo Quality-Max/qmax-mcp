@@ -143,7 +143,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
     {
       title: 'Inspect Page',
       description:
-        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. Does not intentionally modify the target or local filesystem. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
+        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. storageStatePath may name a workspace-relative Playwright storage-state file for authenticated pages; its credentials are loaded into the throwaway browser context and never returned, but the returned page content may be private. Does not intentionally modify the target or local filesystem. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -155,6 +155,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
         includeAccessibilityTree: z.boolean().optional(),
         includeForms: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),
+        storageStatePath: z.string().min(1).optional(),
         viewport: z
           .object({
             width: z.number().int().min(320).max(3840),

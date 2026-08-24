@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from 'playwright';
@@ -68,13 +68,28 @@ export async function withPage<T>(
     browser?: 'chromium' | 'firefox' | 'webkit';
     headed?: boolean;
     allowPrivateNetwork?: boolean;
+    storageStatePath?: string;
   },
   fn: (page: Page, browser: Browser) => Promise<T>
 ): Promise<T> {
   const initialUrl = await assertSafeNetworkUrl(options.url, { allowPrivateNetwork: options.allowPrivateNetwork });
+  const storageStatePath = options.storageStatePath
+    ? await resolveWorkspaceStorageStatePath(options.storageStatePath)
+    : undefined;
   const browser = await browserType(options.browser).launch({ headless: !options.headed });
   try {
-    const context = await browser.newContext(browserContextOptions(options.viewport));
+    let context: BrowserContext;
+    try {
+      context = await browser.newContext({
+        ...browserContextOptions(options.viewport),
+        ...(storageStatePath ? { storageState: storageStatePath } : {}),
+      });
+    } catch (error) {
+      if (storageStatePath) {
+        throw new Error('storageStatePath must contain valid Playwright storage-state JSON.');
+      }
+      throw error;
+    }
     await enforceBrowserNetworkPolicy(context, {
       allowPrivateNetwork: options.allowPrivateNetwork,
       privateNetworkOrigin: initialUrl.origin,
@@ -86,6 +101,37 @@ export async function withPage<T>(
   } finally {
     await browser.close();
   }
+}
+
+const MAX_STORAGE_STATE_BYTES = 10 * 1024 * 1024;
+
+/** Resolve a caller-selected Playwright auth state without allowing reads outside the workspace. */
+export async function resolveWorkspaceStorageStatePath(requestedPath: string): Promise<string> {
+  if (path.isAbsolute(requestedPath)) {
+    throw new Error('storageStatePath must be relative to the active workspace.');
+  }
+
+  const workspaceRoot = await realpath(process.cwd());
+  let resolved: string;
+  try {
+    resolved = await realpath(path.resolve(workspaceRoot, requestedPath));
+  } catch {
+    throw new Error('storageStatePath must name an existing workspace file.');
+  }
+  assertWithin(workspaceRoot, resolved, 'storageStatePath escapes the active workspace.');
+  let metadata;
+  try {
+    metadata = await stat(resolved);
+  } catch {
+    throw new Error('storageStatePath must name an existing workspace file.');
+  }
+  if (!metadata.isFile()) {
+    throw new Error('storageStatePath must name a regular file.');
+  }
+  if (metadata.size > MAX_STORAGE_STATE_BYTES) {
+    throw new Error('storageStatePath exceeds the 10 MB safety limit.');
+  }
+  return resolved;
 }
 
 export async function enforceBrowserNetworkPolicy(
@@ -133,4 +179,11 @@ export function scoreFromFindings(findings: Finding[]): number {
 
 export function cssEscape(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function assertWithin(root: string, candidate: string, message: string): void {
+  const relative = path.relative(root, candidate);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(message);
+  }
 }

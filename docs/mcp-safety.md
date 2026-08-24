@@ -8,7 +8,7 @@ both the annotation flags and every tool description.
 | --- | --- | --- | --- | --- |
 | `scan_url` | Outbound browser and HTTP requests | Optional screenshot artifact | No | Approve a networked scan / artifact write |
 | `scan_url` (cookie check) | Reads the scan browser's own cookie jar | No write | No | Cookie names and flags only; values are never returned |
-| `inspect_page` | Outbound browser requests | No intended write | No | Approve target inspection |
+| `inspect_page` | Outbound browser requests | Optional read of one caller-selected workspace storage-state file; no intended write | No | Approve target inspection and authenticated-state use |
 | `generate_playwright_repro` | None | Writes under `.qmax-mcp/repros` | No | Approve file creation or explicit overwrite |
 | `run_playwright_test` | May be requested by supplied test code | Writes controlled run artifacts | Yes | Default: require an accepted MCP form elicitation for the exact execution digest. Explicit `--unattended`: process-start authorization replaces the per-run prompt. |
 
@@ -32,6 +32,24 @@ It labels observed requests in the output and never blocks them. The
 "trackers loaded before consent" finding is a documented heuristic — a fixed or
 sticky overlay naming cookies or consent with an accept/reject control — and it
 returns the matched selector and text excerpt so a human can confirm it.
+
+## Authenticated page inspection
+
+`inspect_page` accepts an optional `storageStatePath` pointing to a Playwright
+storage-state JSON file. The path is relative to the active workspace. Absolute
+paths, traversal, symlink escapes, non-files, and files over 10 MB are rejected.
+The file is read only to initialize a fresh browser context and is not modified.
+Neither its path nor its cookie and origin values are included in the result.
+
+Storage-state files contain live credentials and must be kept out of source
+control, logs, prompts, and generated artifacts. Use a dedicated state file
+containing only the credentials needed by the inspected application. The
+inspected page can use those credentials to return private content, and
+`inspect_page` intentionally returns bounded structure and text from that page.
+Callers must therefore treat authenticated inspection results as potentially
+sensitive. The usual browser network policy still applies to the target,
+redirects, subresources, and WebSocket connections; providing state does not
+broaden private-network access.
 
 ## Generated repro output
 

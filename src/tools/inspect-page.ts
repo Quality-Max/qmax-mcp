@@ -8,12 +8,13 @@ export type InspectPageArgs = {
   includeForms?: boolean;
   viewport?: Viewport;
   allowPrivateNetwork?: boolean;
+  storageStatePath?: string;
 };
 
 export async function inspectPage(args: InspectPageArgs) {
   const url = validateHttpUrl(args.url);
 
-  return await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork }, async (page) => {
+  return await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork, storageStatePath: args.storageStatePath }, async (page) => {
     const snapshot = await page.evaluate(
       ({ includeForms }) => {
         const text = (value: string | null | undefined) => (value || '').replace(/\s+/g, ' ').trim();

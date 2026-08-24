@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { mkdtemp, mkdir, readFile, rm, symlink, writeFile } = require('node:fs/promises');
+const { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
@@ -16,7 +16,11 @@ const {
   runPlaywrightTest,
   safeRunnerStream,
 } = require('../dist/tools/run-playwright-test.js');
-const { browserContextOptions, enforceBrowserNetworkPolicy } = require('../dist/tools/common.js');
+const {
+  browserContextOptions,
+  enforceBrowserNetworkPolicy,
+  resolveWorkspaceStorageStatePath,
+} = require('../dist/tools/common.js');
 const { assertSafeNetworkUrl, safeFetch } = require('../dist/tools/network-policy.js');
 const { renderClients } = require('../dist/clients.js');
 
@@ -83,14 +87,62 @@ test('two MCP client fixtures receive the locked safety annotations and descript
     assert.deepEqual(received, expected);
 
     const generated = tools.find((tool) => tool.name === 'generate_playwright_repro');
+    const inspect = tools.find((tool) => tool.name === 'inspect_page');
     const run = tools.find((tool) => tool.name === 'run_playwright_test');
     assert.match(generated.description, /approved workspace directory/);
     assert.equal(generated.inputSchema.properties.overwrite.type, 'boolean');
+    assert.match(inspect.description, /storage-state file for authenticated pages/);
+    assert.equal(inspect.inputSchema.properties.storageStatePath.type, 'string');
     assert.match(run.description, /code-execution and artifact-writing boundary/);
     assert.equal(run.inputSchema.properties.executionAcknowledged, undefined);
     assert.equal(run.inputSchema.properties.unattended, undefined);
     assert.match(run.description, /human-approval elicitation/i);
     await client.close();
+  }
+});
+
+test('inspect_page storage-state paths stay within the workspace and are bounded regular files', async () => {
+  const originalDirectory = process.cwd();
+  const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-inspect-state-'));
+  const outside = await mkdtemp(path.join(tmpdir(), 'qmax-inspect-state-outside-'));
+  const authDirectory = path.join(workspace, 'playwright', '.auth');
+  const statePath = path.join(authDirectory, 'user.json');
+  const outsideStatePath = path.join(outside, 'user.json');
+  const oversizedStatePath = path.join(authDirectory, 'oversized.json');
+
+  await mkdir(authDirectory, { recursive: true });
+  const storageState = JSON.stringify({ cookies: [], origins: [] });
+  await writeFile(statePath, storageState, 'utf8');
+  await writeFile(outsideStatePath, storageState, 'utf8');
+  await writeFile(oversizedStatePath, Buffer.alloc(10 * 1024 * 1024 + 1));
+  process.chdir(workspace);
+
+  try {
+    assert.equal(await resolveWorkspaceStorageStatePath('playwright/.auth/user.json'), await realpath(statePath));
+    await assert.rejects(() => resolveWorkspaceStorageStatePath(outsideStatePath), /must be relative/);
+    await assert.rejects(
+      () => resolveWorkspaceStorageStatePath(path.relative(workspace, outsideStatePath)),
+      /escapes the active workspace/
+    );
+    await symlink(outsideStatePath, path.join(authDirectory, 'linked.json'));
+    await assert.rejects(
+      () => resolveWorkspaceStorageStatePath('playwright/.auth/linked.json'),
+      /escapes the active workspace/
+    );
+    await assert.rejects(() => resolveWorkspaceStorageStatePath('playwright/.auth'), /regular file/);
+    await assert.rejects(() => resolveWorkspaceStorageStatePath('playwright/.auth/oversized.json'), /10 MB safety limit/);
+    await assert.rejects(
+      () => resolveWorkspaceStorageStatePath('playwright/.auth/missing.json'),
+      (error) => {
+        assert.equal(error.message, 'storageStatePath must name an existing workspace file.');
+        assert.equal(error.message.includes(workspace), false);
+        return true;
+      }
+    );
+  } finally {
+    process.chdir(originalDirectory);
+    await rm(workspace, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 
