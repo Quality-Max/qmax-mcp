@@ -16,7 +16,7 @@ product with a different transport and auth model; see
 | [Official MCP Registry](https://registry.modelcontextprotocol.io) | Yes, npm package metadata | **Listed** | `io.github.Quality-Max/qmax-mcp` @ 0.4.2, `status: active`, `isLatest: true` |
 | npm | Yes | **Published** | 0.4.2 with provenance attestation, `latest` tag |
 | Smithery | Only as an `.mcpb` bundle | **Deferred, deliberately** | See [the decision](#smithery-deferred) |
-| GitHub MCP Registry / VS Code gallery | Unknown — separately curated | **Not listed, needs investigation** | `github.com/mcp/quality-max/qmax-mcp` → 404 |
+| GitHub MCP Registry / VS Code gallery | Yes — but onboarding is manual curation | **Not listed; prerequisites met, request not yet sent** | `github.com/mcp/quality-max/qmax-mcp` → 404 |
 | cursor.directory | Reported yes | **Not listed, needs verification** | Probe returned 429; not confirmed |
 | Claude Connectors Directory | No — hosted remote connectors only | **Out of scope here** | Tracked in the hosted epic |
 | Claude Code / Codex | No directory exists | **N/A** | Configured per-project; fixtures ship in `examples/agent-setup/` |
@@ -36,17 +36,33 @@ exactly (`io.github.Quality-Max/…`), and the registry validates ownership
 against `mcpName` inside the published tarball — which is immutable, so a
 namespace correction requires a new version.
 
-### GitHub MCP Registry / VS Code gallery — the real gap
+### GitHub MCP Registry / VS Code gallery — process established, request outstanding
 
 `code.visualstudio.com/mcp` redirects to `github.com/mcp`, a separately curated
-catalog (219 servers at time of writing) in public preview. It is **not** fed by
-the official MCP Registry: our entry is live there while
-`github.com/mcp/quality-max/qmax-mcp` returns 404.
+catalog in public preview. It is **not** fed by the official MCP Registry: our
+entry is live there while `github.com/mcp/quality-max/qmax-mcp` returns 404.
 
-The submission process is not documented on the landing page and was not
-determined. This is the highest-value unlisted channel — it is the gallery VS
-Code users see in-product — so establishing how to get listed is the next
-concrete action, not a decision to make.
+The listing process, from first-party sources:
+
+- **Onboarding a new server is manual curation.** GitHub staff, in
+  [github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257):
+  "right now the GitHub MCP registry is a curated list" (2025-11-10), and
+  "the GitHub MCP Registry now has the ability to sync versions from the open
+  source registry, but onboarding a new server is still a manual curation
+  process today" (2026-05-19).
+- **The request goes to `partnerships@github.com`.** From
+  [GitHub's own guide](https://github.blog/ai-and-ml/generative-ai/how-to-find-install-and-manage-mcp-servers-with-the-github-mcp-registry/)
+  (2025-10-24): "Once you've completed the steps above, email
+  partnerships@github.com and request for your server to be included."
+- **Once onboarded, versions sync automatically** from the official registry, so
+  `server.json` remains the single source and no second manifest is needed.
+- **Self-publication was projected for "the next couple months"** in that
+  2025-10-24 post. Staff were still describing onboarding as manual in
+  2026-05-19, so treat that projection as unmet rather than imminent.
+
+**We already meet the stated prerequisites**: published to the official registry
+under a GitHub-auth namespace, `io.github.Quality-Max/qmax-mcp`, live and
+current. The only outstanding step is sending the request.
 
 ### cursor.directory — verify before acting
 
