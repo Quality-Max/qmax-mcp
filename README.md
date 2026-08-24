@@ -78,11 +78,33 @@ Then every finding follows with its severity, a copy-pasteable reproduction, and
 | Tool | Local capability | Boundary to review |
 | --- | --- | --- |
 | `scan_url` | Scan a URL for console, network, link, accessibility, SEO, security-header, cookie/tracker, mixed-content, page-weight, and Core Web Vitals findings. | It makes outbound requests and can write a screenshot. |
-| `inspect_page` | Return page structure and role/name locator candidates. | It makes outbound requests. |
+| `inspect_page` | Return page structure and role/name locator candidates, optionally using a Playwright storage-state file for authenticated pages. | It makes outbound requests and may read an explicitly selected workspace file containing credentials. |
 | `generate_playwright_repro` | Write a deterministic, workspace-contained Playwright repro. | It writes below `.qmax-mcp/repros`; overwrites are explicit. |
 | `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; by default it requires an accepted, digest-bound MCP human-approval elicitation. |
 
 The local server does not require an account. [Hosted proxy mode](#hosted-proxy-mode) is a separate, opt-in connection for account-backed QualityMax capabilities; do not add it unless that capability is needed.
+
+### Inspect an authenticated page
+
+Save a signed-in Playwright context with `browserContext.storageState()`, keep
+that file gitignored, and pass its path relative to the active workspace:
+
+```json
+{
+  "url": "https://example.com/account",
+  "storageStatePath": "playwright/.auth/user.json"
+}
+```
+
+`inspect_page` loads the state into its throwaway browser context before the
+first navigation. The path must resolve to a regular file inside the workspace;
+absolute paths, traversal, symlink escapes, and files over 10 MB are rejected.
+The state path and credential values are not returned, but the inspected page
+structure is returned and may itself contain private account data. Treat both
+the state file and the tool result accordingly, and use a dedicated state file
+containing only the credentials needed by the inspected application. Playwright
+storage state covers cookies, local storage, and optionally IndexedDB; it does
+not persist session storage.
 
 ## Add it to your coding agent
 

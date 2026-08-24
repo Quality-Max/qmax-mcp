@@ -10,6 +10,14 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Added
+
+- `inspect_page` accepts a workspace-relative `storageStatePath` for inspecting
+  authenticated pages ([#53]). The Playwright state is loaded into the
+  throwaway context before navigation and is never returned. Absolute paths,
+  traversal, symlink escapes, non-files, and files over 10 MB are rejected;
+  existing browser network restrictions remain in force.
+
 ### Repository, not shipped in the package
 
 - The `Publish to MCP Registry` liveness check selects the version the registry
