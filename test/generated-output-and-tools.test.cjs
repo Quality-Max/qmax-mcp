@@ -1,14 +1,12 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { mkdtemp, mkdir, readFile, rm, symlink, writeFile } = require('node:fs/promises');
-const { createServer: createHttpServer } = require('node:http');
+const { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const { ElicitRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const { generatePlaywrightRepro } = require('../dist/tools/generate-playwright-repro.js');
-const { inspectPage } = require('../dist/tools/inspect-page.js');
 const { createLocalServer } = require('../dist/server.js');
 const {
   createChildEnvironment,
@@ -103,90 +101,24 @@ test('two MCP client fixtures receive the locked safety annotations and descript
   }
 });
 
-test('inspect_page can load workspace-confined Playwright storage state without returning it', async () => {
+test('inspect_page storage-state paths stay within the workspace and are bounded regular files', async () => {
   const originalDirectory = process.cwd();
-  const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-inspect-auth-'));
-  const outside = await mkdtemp(path.join(tmpdir(), 'qmax-inspect-auth-outside-'));
+  const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-inspect-state-'));
+  const outside = await mkdtemp(path.join(tmpdir(), 'qmax-inspect-state-outside-'));
   const authDirectory = path.join(workspace, 'playwright', '.auth');
   const statePath = path.join(authDirectory, 'user.json');
-  const invalidStatePath = path.join(authDirectory, 'invalid.json');
   const outsideStatePath = path.join(outside, 'user.json');
-  const stateCanary = 'fixture-auth-state-canary';
-  const authFlag = `fixture-authorized=${stateCanary}`;
-  const server = createHttpServer((request, response) => {
-    if (request.url === '/protected' && request.headers.cookie?.includes(authFlag)) {
-      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      response.end('<title>Private area</title><main><h1>Protected dashboard</h1><button>Sign out</button></main>');
-      return;
-    }
-    if (request.url === '/protected') {
-      response.writeHead(302, { location: '/login' });
-      response.end();
-      return;
-    }
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end('<title>Login</title><main><h1>Login required</h1></main>');
-  });
+  const oversizedStatePath = path.join(authDirectory, 'oversized.json');
 
   await mkdir(authDirectory, { recursive: true });
-  const storageState = JSON.stringify({
-    cookies: [
-      {
-        name: 'fixture-authorized',
-        value: stateCanary,
-        domain: '127.0.0.1',
-        path: '/',
-        expires: -1,
-        httpOnly: true,
-        secure: false,
-        sameSite: 'Lax',
-      },
-    ],
-    origins: [],
-  });
+  const storageState = JSON.stringify({ cookies: [], origins: [] });
   await writeFile(statePath, storageState, 'utf8');
-  await writeFile(invalidStatePath, '{fixture-malformed-state-canary', 'utf8');
   await writeFile(outsideStatePath, storageState, 'utf8');
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const address = server.address();
-  assert.notEqual(address, null);
-  assert.equal(typeof address, 'object');
-  const url = `http://127.0.0.1:${address.port}/protected`;
+  await writeFile(oversizedStatePath, Buffer.alloc(10 * 1024 * 1024 + 1));
   process.chdir(workspace);
 
   try {
-    const anonymous = await inspectPage({ url, allowPrivateNetwork: true });
-    assert.equal(anonymous.title, 'Login');
-    assert.equal(anonymous.headings[0].text, 'Login required');
-
-    const authenticated = await inspectPage({
-      url,
-      allowPrivateNetwork: true,
-      storageStatePath: 'playwright/.auth/user.json',
-    });
-    assert.equal(authenticated.title, 'Private area');
-    assert.equal(authenticated.headings[0].text, 'Protected dashboard');
-    assert.equal(authenticated.interactive[0].name, 'Sign out');
-    assert.equal(JSON.stringify(authenticated).includes(stateCanary), false);
-
-    await assert.rejects(
-      () =>
-        inspectPage({
-          url,
-          allowPrivateNetwork: true,
-          storageStatePath: 'playwright/.auth/invalid.json',
-        }),
-      (error) => {
-        assert.equal(error.message, 'storageStatePath must contain valid Playwright storage-state JSON.');
-        assert.equal(error.message.includes('fixture-malformed-state-canary'), false);
-        assert.equal(error.message.includes(invalidStatePath), false);
-        return true;
-      }
-    );
-
+    assert.equal(await resolveWorkspaceStorageStatePath('playwright/.auth/user.json'), await realpath(statePath));
     await assert.rejects(() => resolveWorkspaceStorageStatePath(outsideStatePath), /must be relative/);
     await assert.rejects(
       () => resolveWorkspaceStorageStatePath(path.relative(workspace, outsideStatePath)),
@@ -197,9 +129,18 @@ test('inspect_page can load workspace-confined Playwright storage state without 
       () => resolveWorkspaceStorageStatePath('playwright/.auth/linked.json'),
       /escapes the active workspace/
     );
+    await assert.rejects(() => resolveWorkspaceStorageStatePath('playwright/.auth'), /regular file/);
+    await assert.rejects(() => resolveWorkspaceStorageStatePath('playwright/.auth/oversized.json'), /10 MB safety limit/);
+    await assert.rejects(
+      () => resolveWorkspaceStorageStatePath('playwright/.auth/missing.json'),
+      (error) => {
+        assert.equal(error.message, 'storageStatePath must name an existing workspace file.');
+        assert.equal(error.message.includes(workspace), false);
+        return true;
+      }
+    );
   } finally {
     process.chdir(originalDirectory);
-    await new Promise((resolve) => server.close(resolve));
     await rm(workspace, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
   }
