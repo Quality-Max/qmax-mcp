@@ -10,6 +10,8 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.5.0 — 2026-08-24
+
 ### Added
 
 - `inspect_page` accepts a workspace-relative `storageStatePath` for inspecting
