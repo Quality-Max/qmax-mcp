@@ -15,6 +15,12 @@ export interface NeighborTool {
   name: string;
   repository: string;
   license: string;
+  /** Live public usage metric displayed in the README ecosystem table. */
+  usageBadge: {
+    alt: string;
+    image: string;
+    href: string;
+  };
   /** The command a human runs; qmax-mcp never runs it for them. */
   command: string;
   /** What the tool does, stated without promotion. */
@@ -29,6 +35,11 @@ export const NEIGHBOR_TOOLS: readonly NeighborTool[] = [
     name: '9lives',
     repository: 'https://github.com/Quality-Max/9lives',
     license: 'MIT',
+    usageBadge: {
+      alt: 'PyPI downloads',
+      image: 'https://img.shields.io/pypi/dm/9lives?label=downloads',
+      href: 'https://pypistats.org/packages/9lives',
+    },
     command: '9l heal <spec>',
     summary:
       'Self-healing CLI for Playwright specs, installed with `uv tool install 9lives` or `pip install 9lives`. It reruns the spec, classifies the failure, repairs a drifted locator offline, escalates a structural change to the coding-agent CLI already installed, and applies a reviewed diff.',
@@ -39,6 +50,11 @@ export const NEIGHBOR_TOOLS: readonly NeighborTool[] = [
     name: 'qualitymax-grader',
     repository: 'https://github.com/Quality-Max/qualitymax-grader',
     license: 'Apache-2.0',
+    usageBadge: {
+      alt: 'npm downloads',
+      image: 'https://img.shields.io/npm/dm/qualitymax-grader?label=downloads',
+      href: 'https://www.npmjs.com/package/qualitymax-grader',
+    },
     command: 'npx qualitymax-grader <spec>',
     summary:
       'Offline A-F quality grade for Playwright specs against fixed rules: missing assertions, fragile selectors, waitForTimeout, missing steps, and structural gaps. No model, no network, no account.',
@@ -49,6 +65,11 @@ export const NEIGHBOR_TOOLS: readonly NeighborTool[] = [
     name: 'free-qa-skills',
     repository: 'https://github.com/Quality-Max/free-qa-skills',
     license: 'Apache-2.0',
+    usageBadge: {
+      alt: 'skills.sh installs',
+      image: 'https://skills.sh/b/quality-max/free-qa-skills',
+      href: 'https://www.skills.sh/quality-max/free-qa-skills',
+    },
     command: 'install from https://www.skills.sh/quality-max/free-qa-skills',
     summary:
       'QA skills that run directly inside a coding agent: test-suite quality review, flaky-selector scan, dead-code and dependency audits, secret scan, and page-level checks.',
