@@ -31,8 +31,45 @@ function textResult(text: string) {
   };
 }
 
+/**
+ * Describe *why* execution was not authorized, in terms the caller can act on.
+ *
+ * The failure used to read only "declined or cancelled", which covers three
+ * different situations with three different remedies: a human said no, a client
+ * closed the prompt, or a client answered the form without approving. None of
+ * them mentioned which mode the server was started in, so a caller in an
+ * automated environment could not tell "no human is available here" from "a
+ * human refused" — and the fix for the former (`--unattended`, which is
+ * process-start only) is invisible from inside the session.
+ */
+export function describeApprovalFailure(context: {
+  reason: 'client-unsupported' | 'declined' | 'cancelled' | 'not-approved';
+  digest: string;
+  client: string;
+}): string {
+  const where = `gated mode; digest ${context.digest.slice(0, 12)}; client ${context.client}`;
+  const enableUnattended =
+    'Start the server with --unattended for isolated automation where no human can answer an elicitation.';
+
+  if (context.reason === 'client-unsupported') {
+    return (
+      `This MCP client cannot provide verifiable human approval for code execution (${where}). ` +
+      `${enableUnattended} Otherwise connect a client that supports MCP form elicitation.`
+    );
+  }
+
+  const outcome = {
+    declined: 'was declined by the human reviewer',
+    cancelled: 'was cancelled before an answer was given',
+    'not-approved': 'was answered without granting approval',
+  }[context.reason];
+
+  return `Human approval for code execution ${outcome} (${where}). ${enableUnattended}`;
+}
+
 async function requestHumanExecutionApproval(server: McpServer, args: RunPlaywrightTestArgs) {
   const approval = await describeExecutionApproval(args);
+  const client = server.server.getClientVersion()?.name || 'unknown-client';
   let response;
   try {
     response = await server.server.elicitInput({
@@ -54,18 +91,26 @@ async function requestHumanExecutionApproval(server: McpServer, args: RunPlaywri
       },
     });
   } catch {
-    throw new Error('This MCP client cannot provide verifiable human approval for code execution.');
+    throw new Error(
+      describeApprovalFailure({ reason: 'client-unsupported', digest: approval.digest, client })
+    );
   }
 
   if (response.action !== 'accept' || response.content?.['approved'] !== true) {
-    throw new Error('Human approval for code execution was declined or cancelled.');
+    const reason =
+      response.action === 'decline'
+        ? 'declined'
+        : response.action === 'cancel'
+          ? 'cancelled'
+          : 'not-approved';
+    throw new Error(describeApprovalFailure({ reason, digest: approval.digest, client }));
   }
 
   return {
     mechanism: 'mcp-form-elicitation-v1',
     digest: approval.digest,
     target: approval.target,
-    client: server.server.getClientVersion()?.name || 'unknown-client',
+    client,
   };
 }
 

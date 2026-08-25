@@ -169,7 +169,11 @@ test('code execution requires a client-visible human approval elicitation bound 
   try {
     const response = await declined.client.callTool({ name: 'run_playwright_test', arguments: { code: source } });
     assert.equal(response.isError, true);
-    assert.match(response.content[0].text, /declined or cancelled/);
+    // The message names the specific outcome (a decline, not a cancel or an
+    // unsupported client), the active mode, and the way out — see #64.
+    assert.match(response.content[0].text, /declined by the human reviewer/);
+    assert.match(response.content[0].text, /gated mode/);
+    assert.match(response.content[0].text, /--unattended/);
     assert.match(declined.elicitation().message, /SHA-256/);
     assert.match(declined.elicitation().message, /inline Playwright test/);
   } finally {
