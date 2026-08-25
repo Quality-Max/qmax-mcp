@@ -105,6 +105,39 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
   };
 }
 
+
+/**
+ * Reject a test that imports from a relative path, before anything is executed.
+ *
+ * The runner snapshots the *source* into an isolated directory and runs it under
+ * a generated config, so `./helpers` no longer resolves — the test fails to load
+ * rather than failing an assertion, and the error names a temp path that means
+ * nothing to the caller. The tool description says it can execute "a local test
+ * file", which reads as "a spec from my project", so this is a very easy mistake
+ * to make; failing here says why, once, instead of leaving a module-not-found to
+ * be decoded.
+ */
+export function assertSelfContainedTest(sourceCode: string): void {
+  const relativeImports = new Set<string>();
+  const patterns = [
+    /\bfrom\s+['"](\.[^'"]*)['"]/g,
+    /\bimport\s+['"](\.[^'"]*)['"]/g,
+    /\brequire\s*\(\s*['"](\.[^'"]*)['"]\s*\)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of sourceCode.matchAll(pattern)) relativeImports.add(match[1]);
+  }
+  if (relativeImports.size === 0) return;
+
+  throw new Error(
+    `This test imports from a relative path (${Array.from(relativeImports).join(', ')}), ` +
+      'which will not resolve: the runner executes a snapshot of the source in an isolated ' +
+      'directory under a generated Playwright config, so the workspace\'s own modules and ' +
+      'playwright.config are not available. Inline what the test needs, or run it directly ' +
+      'with your project config.'
+  );
+}
+
 /**
  * Create an authorization subject from every execution-affecting input. The
  * server authorizes this digest using its startup-selected mode, then the
@@ -122,6 +155,7 @@ export async function describeExecutionApproval(
   const resolvedWorkspaceRoot = workspaceRoot ?? (await realpath(process.cwd()));
   const sourcePath = args.testPath ? await resolveWorkspaceTestPath(resolvedWorkspaceRoot, args.testPath) : undefined;
   const sourceCode = sourcePath ? await readFile(sourcePath, 'utf8') : args.code || '';
+  assertSelfContainedTest(sourceCode);
   const target = sourcePath ? toWorkspaceRelative(resolvedWorkspaceRoot, sourcePath) : 'inline Playwright test';
   const input = {
     target,

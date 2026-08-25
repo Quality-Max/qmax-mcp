@@ -72,6 +72,12 @@ export type ScanUrlArgs = {
   viewport?: Viewport;
   allowPrivateNetwork?: boolean;
   weightBudget?: Partial<WeightBudget>;
+  /**
+   * Workspace-relative Playwright storage-state file, as accepted by
+   * `inspect_page`. Without it none of the checks can see a page behind a login,
+   * which for most applications is nearly all of them.
+   */
+  storageStatePath?: string;
 };
 
 export type ScanMetrics = {
@@ -91,7 +97,14 @@ export async function scanUrl(args: ScanUrlArgs) {
   const metrics: ScanMetrics = {};
   const wantsInventory = PAGE_INVENTORY_CHECKS.some((check) => checks.has(check));
 
-  await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork }, async (page) => {
+  await withPage(
+    {
+      url,
+      viewport: args.viewport,
+      allowPrivateNetwork: args.allowPrivateNetwork,
+      storageStatePath: args.storageStatePath,
+    },
+    async (page) => {
     const responses: ResponseObservation[] = [];
     if (wantsInventory) {
       page.on('response', (response) => {
@@ -236,6 +249,37 @@ export async function scanUrl(args: ScanUrlArgs) {
               suggestion: 'Associate the control with a visible label or aria-label.',
             });
           }
+        }
+
+        // Controls built from non-interactive elements — an <img> or <svg> inside a
+        // div with a click handler — are invisible to every check above: they are
+        // not interactive as far as the DOM is concerned, so there is nothing to
+        // report a missing accessible name on. They are also unusable, because
+        // they cannot be focused or activated from a keyboard. This is the common
+        // React shape, and a clean accessibility result was previously being read
+        // as evidence that such controls were reachable.
+        const focusableSelector = 'a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
+        const focusables = Array.from(document.querySelectorAll(focusableSelector));
+        const seenClickable = new Set<Element>();
+        for (const el of Array.from(document.querySelectorAll('div, span, li, img, svg, i'))) {
+          if (el.matches(focusableSelector)) continue;
+          if (el.getAttribute('role')) continue;
+          if (getComputedStyle(el).cursor !== 'pointer') continue;
+          if (focusables.some((focusable) => focusable.contains(el))) continue;
+
+          // Report the outermost element of a clickable cluster, so an icon nested
+          // in a styled wrapper yields one finding rather than one per layer.
+          if (Array.from(seenClickable).some((seen) => seen.contains(el))) continue;
+          seenClickable.add(el);
+
+          issues.push({
+            severity: 'medium',
+            category: 'accessibility',
+            message: 'Element appears clickable but cannot be focused or activated from a keyboard.',
+            selector: selectorFor(el),
+            suggestion:
+              'Use a <button>, or add role="button", tabindex="0" and Enter/Space handling, plus an accessible name.',
+          });
         }
 
         for (const el of Array.from(document.querySelectorAll('button, a[href], [role="button"], [role="link"]'))) {
