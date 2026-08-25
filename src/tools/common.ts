@@ -69,10 +69,16 @@ export async function withPage<T>(
     headed?: boolean;
     allowPrivateNetwork?: boolean;
     storageStatePath?: string;
+    acknowledgePrivateContent?: boolean;
   },
   fn: (page: Page, browser: Browser) => Promise<T>
 ): Promise<T> {
   const initialUrl = await assertSafeNetworkUrl(options.url, { allowPrivateNetwork: options.allowPrivateNetwork });
+  if (options.storageStatePath && options.acknowledgePrivateContent !== true) {
+    throw new Error(
+      'Authenticated inspection requires acknowledgePrivateContent:true because the result may contain private page content.'
+    );
+  }
   const storageStatePath = options.storageStatePath
     ? await resolveWorkspaceStorageStatePath(options.storageStatePath)
     : undefined;

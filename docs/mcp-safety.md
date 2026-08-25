@@ -40,7 +40,9 @@ Playwright storage-state JSON file. The path is relative to the active
 workspace. Absolute paths, traversal, symlink escapes, non-files, and files over
 10 MB are rejected. The file is read only to initialize a fresh browser context
 and is not modified. Neither its path nor its cookie and origin values are
-included in the result.
+included in the result. Supplying state also requires
+`acknowledgePrivateContent:true`, an explicit caller confirmation that the
+result may contain private page content.
 
 Storage-state files contain live credentials and must be kept out of source
 control, logs, prompts, and generated artifacts. Use a dedicated state file

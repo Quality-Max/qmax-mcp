@@ -233,7 +233,9 @@ export async function describeExecutionApproval(
     throw new Error('Provide either testPath or code');
   }
 
-  const resolvedWorkspaceRoot = workspaceRoot ?? (await realpath(process.cwd()));
+  // Resolve even an explicitly supplied root so all containment checks use the
+  // canonical directory rather than trusting a caller-provided symlink path.
+  const resolvedWorkspaceRoot = await realpath(workspaceRoot ?? process.cwd());
   const sourcePath = args.testPath ? await resolveWorkspaceTestPath(resolvedWorkspaceRoot, args.testPath) : undefined;
   const sourceCode = sourcePath ? await readFile(sourcePath, 'utf8') : args.code || '';
   assertSelfContainedTest(sourceCode);

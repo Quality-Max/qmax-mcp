@@ -94,19 +94,21 @@ that file gitignored, and pass its path relative to the active workspace:
 ```json
 {
   "url": "https://example.com/account",
-  "storageStatePath": "playwright/.auth/user.json"
+  "storageStatePath": "playwright/.auth/user.json",
+  "acknowledgePrivateContent": true
 }
 ```
 
 `scan_url` and `inspect_page` load the state into a throwaway browser context
-before the first navigation. The path must resolve to a regular file inside the
-workspace; absolute paths, traversal, symlink escapes, and files over 10 MB are
-rejected. The state path and credential values are not returned, but findings
-or inspected page structure may reflect private account data. Treat both the
-state file and the tool result accordingly, and use a dedicated state file
-containing only the credentials needed by the inspected application. Playwright
-storage state covers cookies, local storage, and optionally IndexedDB; it does
-not persist session storage.
+before the first navigation and require `acknowledgePrivateContent:true` as
+explicit consent that the result may contain private page content. The path must
+resolve to a regular file inside the workspace; absolute paths, traversal,
+symlink escapes, and files over 10 MB are rejected. The state path and credential
+values are not returned, but findings or inspected page structure may reflect
+private account data. Treat both the state file and the tool result accordingly,
+and use a dedicated state file containing only the credentials needed by the
+inspected application. Playwright storage state covers cookies, local storage,
+and optionally IndexedDB; it does not persist session storage.
 
 ## Add it to your coding agent
 

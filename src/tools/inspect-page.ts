@@ -10,6 +10,8 @@ export type InspectPageArgs = {
   viewport?: Viewport;
   allowPrivateNetwork?: boolean;
   storageStatePath?: string;
+  /** Explicit consent to return structure and text derived from authenticated private content. */
+  acknowledgePrivateContent?: boolean;
 };
 
 /**
@@ -62,7 +64,13 @@ export function emptySnapshotWarnings(
 export async function inspectPage(args: InspectPageArgs) {
   const url = validateHttpUrl(args.url);
 
-  return await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork, storageStatePath: args.storageStatePath }, async (page) => {
+  return await withPage({
+    url,
+    viewport: args.viewport,
+    allowPrivateNetwork: args.allowPrivateNetwork,
+    storageStatePath: args.storageStatePath,
+    acknowledgePrivateContent: args.acknowledgePrivateContent,
+  }, async (page) => {
     await waitForDomToSettle(page);
     const snapshot = await page.evaluate(
       ({ includeForms }) => {

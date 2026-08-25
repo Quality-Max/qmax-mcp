@@ -87,12 +87,15 @@ test('two MCP client fixtures receive the locked safety annotations and descript
     assert.deepEqual(received, expected);
 
     const generated = tools.find((tool) => tool.name === 'generate_playwright_repro');
+    const scan = tools.find((tool) => tool.name === 'scan_url');
     const inspect = tools.find((tool) => tool.name === 'inspect_page');
     const run = tools.find((tool) => tool.name === 'run_playwright_test');
     assert.match(generated.description, /approved workspace directory/);
     assert.equal(generated.inputSchema.properties.overwrite.type, 'boolean');
     assert.match(inspect.description, /storage-state file for authenticated pages/);
     assert.equal(inspect.inputSchema.properties.storageStatePath.type, 'string');
+    assert.deepEqual(inspect.inputSchema.properties.acknowledgePrivateContent, { type: 'boolean', const: true });
+    assert.deepEqual(scan.inputSchema.properties.acknowledgePrivateContent, { type: 'boolean', const: true });
     assert.match(run.description, /code-execution and artifact-writing boundary/);
     assert.equal(run.inputSchema.properties.executionAcknowledged, undefined);
     assert.equal(run.inputSchema.properties.unattended, undefined);

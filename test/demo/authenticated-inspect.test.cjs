@@ -89,10 +89,21 @@ test('inspection and scans use authenticated storage state without returning it'
     assert.equal(anonymous.title, 'Login');
     assert.equal(anonymous.headings[0].text, 'Login required');
 
+    await assert.rejects(
+      () =>
+        inspectPage({
+          url,
+          allowPrivateNetwork: true,
+          storageStatePath: 'playwright/.auth/user.json',
+        }),
+      /requires acknowledgePrivateContent:true/
+    );
+
     const authenticated = await inspectPage({
       url,
       allowPrivateNetwork: true,
       storageStatePath: 'playwright/.auth/user.json',
+      acknowledgePrivateContent: true,
     });
     assert.equal(authenticated.title, 'Private area');
     assert.equal(authenticated.headings[0].text, 'Protected dashboard');
@@ -114,6 +125,7 @@ test('inspection and scans use authenticated storage state without returning it'
       checks: ['links'],
       allowPrivateNetwork: true,
       storageStatePath: 'playwright/.auth/user.json',
+      acknowledgePrivateContent: true,
     });
     assert.equal(authenticatedLinks.findings.length, 0);
     assert.equal(JSON.stringify(authenticatedLinks).includes(stateCanary), false);
@@ -138,6 +150,7 @@ test('inspection and scans use authenticated storage state without returning it'
           url,
           allowPrivateNetwork: true,
           storageStatePath: 'playwright/.auth/invalid.json',
+          acknowledgePrivateContent: true,
         }),
       (error) => {
         assert.equal(error.message, 'storageStatePath must contain valid Playwright storage-state JSON.');

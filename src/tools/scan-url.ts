@@ -78,6 +78,8 @@ export type ScanUrlArgs = {
    * which for most applications is nearly all of them.
    */
   storageStatePath?: string;
+  /** Explicit consent to return findings derived from authenticated private content. */
+  acknowledgePrivateContent?: boolean;
 };
 
 export type ScanMetrics = {
@@ -103,6 +105,7 @@ export async function scanUrl(args: ScanUrlArgs) {
       viewport: args.viewport,
       allowPrivateNetwork: args.allowPrivateNetwork,
       storageStatePath: args.storageStatePath,
+      acknowledgePrivateContent: args.acknowledgePrivateContent,
     },
     async (page) => {
     const responses: ResponseObservation[] = [];
