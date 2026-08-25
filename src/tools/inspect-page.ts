@@ -1,3 +1,4 @@
+import type { Page } from 'playwright';
 import { cssEscape, type Viewport, validateHttpUrl, withPage } from './common';
 import { safeUrlForDisplay } from './network-policy';
 import { redactSensitiveData } from './run-playwright-test';
@@ -11,10 +12,58 @@ export type InspectPageArgs = {
   storageStatePath?: string;
 };
 
+/**
+ * Give a client-rendered page a bounded chance to finish rendering.
+ *
+ * `withPage` navigates with `waitUntil: 'domcontentloaded'`, which on an app that
+ * renders in the browser fires against an empty shell — the snapshot then reports
+ * no headings, no controls and no forms for a page that has all three once
+ * hydrated. Polling until the node count stops changing covers that without
+ * waiting on `networkidle`, which never arrives on apps holding a websocket or
+ * an SSE stream open.
+ *
+ * Bounded and best-effort by design: if the page is still changing when the
+ * budget runs out we snapshot anyway and report what we saw, rather than failing.
+ */
+async function waitForDomToSettle(page: Page, timeoutMs = 5_000, quietMs = 250): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let previous = -1;
+  while (Date.now() < deadline) {
+    const count = await page.evaluate(() => document.getElementsByTagName('*').length);
+    if (count > 0 && count === previous) return;
+    previous = count;
+    await page.waitForTimeout(quietMs);
+  }
+}
+
+
+/**
+ * Warn when a snapshot found nothing, and say how much DOM there was.
+ *
+ * An all-empty snapshot is ambiguous: the page may genuinely have no semantic
+ * markup, or it may simply not have rendered yet. Returning the node count
+ * alongside the warning lets the caller tell those apart — a handful of nodes
+ * means an empty shell, a few hundred means the page rendered and really has no
+ * headings or controls. Previously the response was empty arrays and no
+ * explanation, which reads as authoritative.
+ */
+export function emptySnapshotWarnings(
+  counts: { headings: number; interactive: number; forms: number },
+  domNodeCount: number
+): string[] {
+  if (counts.headings > 0 || counts.interactive > 0 || counts.forms > 0) return [];
+  return [
+    `No headings, controls or forms were found in ${domNodeCount} DOM nodes. ` +
+      'If the page renders in the browser it may still have been mid-render; ' +
+      'a server-rendered page with no semantic markup produces the same result.',
+  ];
+}
+
 export async function inspectPage(args: InspectPageArgs) {
   const url = validateHttpUrl(args.url);
 
   return await withPage({ url, viewport: args.viewport, allowPrivateNetwork: args.allowPrivateNetwork, storageStatePath: args.storageStatePath }, async (page) => {
+    await waitForDomToSettle(page);
     const snapshot = await page.evaluate(
       ({ includeForms }) => {
         const text = (value: string | null | undefined) => (value || '').replace(/\s+/g, ' ').trim();
@@ -29,7 +78,32 @@ export async function inspectPage(args: InspectPageArgs) {
           if (testId) return `[data-testid="${testId}"]`;
           const id = el.getAttribute('id');
           if (id) return `#${CSS.escape(id)}`;
-          return el.tagName.toLowerCase();
+          // Fall back to a path rather than the bare tag name: two anchors with
+          // no id both used to be reported as `a`, which matches every link on
+          // the page and so identifies neither.
+          const parts: string[] = [];
+          let node: Element | null = el;
+          while (node && parts.length < 6) {
+            const tag = node.tagName.toLowerCase();
+            if (tag === 'body' || tag === 'html') {
+              parts.unshift(tag);
+              break;
+            }
+            const nodeId = node.getAttribute('id');
+            if (nodeId) {
+              parts.unshift(`#${CSS.escape(nodeId)}`);
+              break;
+            }
+            const parent: Element | null = node.parentElement;
+            if (!parent) {
+              parts.unshift(tag);
+              break;
+            }
+            const twins = Array.from(parent.children).filter((child) => child.tagName === node!.tagName);
+            parts.unshift(twins.length > 1 ? `${tag}:nth-of-type(${twins.indexOf(node) + 1})` : tag);
+            node = parent;
+          }
+          return parts.join(' > ');
         };
         const roleFor = (el: Element) => {
           const explicit = el.getAttribute('role');
@@ -116,9 +190,23 @@ export async function inspectPage(args: InspectPageArgs) {
           })
         : undefined;
 
+    // Reported so an empty snapshot is self-describing. Without these, "no
+    // interactive elements" is indistinguishable from "snapshotted too early",
+    // and the caller has nothing to act on.
+    const diagnostics = await page.evaluate(() => ({
+      domNodeCount: document.getElementsByTagName('*').length,
+      readyState: document.readyState,
+    }));
+    const warnings = emptySnapshotWarnings(
+      { headings: snapshot.headings.length, interactive: snapshot.interactive.length, forms: snapshot.forms.length },
+      diagnostics.domNodeCount
+    );
+
     return redactSensitiveData({
       ...snapshot,
       url: safeUrlForDisplay(snapshot.url),
+      diagnostics,
+      warnings: warnings.length > 0 ? warnings : undefined,
       interactive: snapshot.interactive.map((item) => ({ ...item, href: item.href ? safeUrlForDisplay(item.href) : undefined })),
       forms: snapshot.forms.map((form) => ({ ...form, action: safeUrlForDisplay(form.action) })),
       accessibilityTree,
