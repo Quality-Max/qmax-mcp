@@ -3,7 +3,7 @@ displayName: QualityMax QA MCP
 description: >
   Local-first QA MCP server: scan URLs, inspect pages, generate Playwright repros,
   and run tests locally.
-version: 0.5.1
+version: 0.6.0
 homepage: https://qualitymax.io
 logo: https://app.qualitymax.io/static/img/logo.png
 
