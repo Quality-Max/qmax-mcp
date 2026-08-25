@@ -327,6 +327,13 @@ test('the test runner excludes parent credentials, supports explicit values, red
     );
     assert.equal(allowedResult.stdout, 'visible');
     assert.throws(() => createChildEnvironment({ allowedEnv: { PATH: 'invalid' } }), /reserved/);
+    assert.throws(() => createChildEnvironment({ allowedEnv: { Path: 'invalid' } }), /reserved/);
+    assert.throws(() => createChildEnvironment({ allowedEnv: { NODE_OPTIONS: '--inspect' } }), /reserved/);
+    assert.throws(() => createChildEnvironment({ allowedEnv: { QMAX_TEST_VISIBLE: 'bad\0value' } }), /invalid value/);
+    assert.throws(
+      () => createChildEnvironment({ allowedEnv: Object.fromEntries(Array.from({ length: 33 }, (_, index) => [`SAFE_${index}`, 'value'])) }),
+      /at most 32/
+    );
 
     const redacted = redactSensitiveText('Authorization: Bearer test-redaction-sentinel?api_key=test-redaction-sentinel');
     assert.equal(redacted.includes('test-redaction-sentinel'), false);

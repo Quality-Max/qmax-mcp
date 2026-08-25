@@ -260,7 +260,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
         headed: z.boolean().optional(),
         timeoutMs: z.number().int().min(1000).max(300000).optional(),
         wallClockTimeoutMs: z.number().int().min(1000).max(330000).optional(),
-        allowedEnv: z.record(z.string(), z.string()).optional(),
+        allowedEnv: z.record(z.string().max(128), z.string().max(8192)).optional(),
       },
     },
     async (args, extra) => {

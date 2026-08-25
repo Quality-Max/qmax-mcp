@@ -28,7 +28,22 @@ export type ExecutionApprovalSummary = {
   source: 'inline code' | 'local test file';
 };
 
-const RESERVED_ENVIRONMENT_KEYS = new Set(['BASE_URL', 'NODE_PATH', 'PATH', 'TMP', 'TEMP', 'TMPDIR']);
+const RESERVED_ENVIRONMENT_KEYS = new Set([
+  'BASE_URL',
+  'NODE_PATH',
+  'PATH',
+  'TMP',
+  'TEMP',
+  'TMPDIR',
+  'NODE_OPTIONS',
+  'BUN_OPTIONS',
+  'DENO_DIR',
+  'NPM_CONFIG_PREFIX',
+  'NPM_CONFIG_SCRIPT_SHELL',
+  'NPM_CONFIG_USERCONFIG',
+]);
+const MAX_ALLOWED_ENVIRONMENT_ENTRIES = 32;
+const MAX_ALLOWED_ENVIRONMENT_VALUE_LENGTH = 8_192;
 const MAX_CAPTURED_OUTPUT = 200_000;
 
 export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: RunPlaywrightTestOptions = {}) {
@@ -273,9 +288,24 @@ export function createChildEnvironment(args: RunPlaywrightTestArgs): Record<stri
     environment.ComSpec = process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe';
   }
 
-  for (const [key, value] of Object.entries(args.allowedEnv || {})) {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || RESERVED_ENVIRONMENT_KEYS.has(key)) {
+  const allowedEntries = Object.entries(args.allowedEnv || {});
+  if (allowedEntries.length > MAX_ALLOWED_ENVIRONMENT_ENTRIES) {
+    throw new Error(`allowedEnv may contain at most ${MAX_ALLOWED_ENVIRONMENT_ENTRIES} variables.`);
+  }
+  for (const [key, value] of allowedEntries) {
+    if (
+      key.length > 128 ||
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ||
+      RESERVED_ENVIRONMENT_KEYS.has(key.toUpperCase())
+    ) {
       throw new Error(`allowedEnv contains an invalid or reserved variable name: ${key}`);
+    }
+    if (
+      typeof value !== 'string' ||
+      value.length > MAX_ALLOWED_ENVIRONMENT_VALUE_LENGTH ||
+      value.includes('\0')
+    ) {
+      throw new Error(`allowedEnv contains an invalid value for variable: ${key}`);
     }
     environment[key] = value;
   }
@@ -287,8 +317,10 @@ async function createRunDirectory(workspaceRoot: string): Promise<string> {
   await mkdir(root, { recursive: true });
   const resolvedRoot = await realpath(root);
   assertWithin(workspaceRoot, resolvedRoot, 'The controlled run directory resolves outside the workspace.', true);
-  const directory = path.join(resolvedRoot, `run-${Date.now()}-${randomUUID().slice(0, 8)}`);
-  await mkdir(directory);
+  // A full UUID prevents another local process from guessing a pending run
+  // directory, while owner-only permissions protect its test and artifacts.
+  const directory = path.join(resolvedRoot, `run-${randomUUID()}`);
+  await mkdir(directory, { mode: 0o700 });
   return directory;
 }
 

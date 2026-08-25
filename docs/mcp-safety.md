@@ -79,7 +79,8 @@ host path. Generated repros are durable workspace artifacts; remove the
 `PATH`, a temporary-directory setting, the runner's Playwright dependency
 path, `BASE_URL` from the request, and a runner marker. It does not inherit the
 parent process environment. A caller may deliberately add non-sensitive values
-with `allowedEnv`; reserved process-control variables cannot be replaced.
+with `allowedEnv`; names and values are bounded, NUL bytes are rejected, and
+reserved process-control variables such as `NODE_OPTIONS` cannot be replaced.
 In the default mode, the server issues an MCP form elicitation before each call.
 It states the execution target, its code-execution/filesystem/network effects,
 and a SHA-256 digest of the test source plus every execution-affecting option.
