@@ -146,6 +146,37 @@ test('inspect_page storage-state paths stay within the workspace and are bounded
   }
 });
 
+test('run_playwright_test paths reject lexical traversal and symlink escapes', async () => {
+  const originalDirectory = process.cwd();
+  const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-test-path-'));
+  const outside = await mkdtemp(path.join(tmpdir(), 'qmax-test-path-outside-'));
+  const insidePath = path.join(workspace, 'inside.spec.ts');
+  const outsidePath = path.join(outside, 'outside.spec.ts');
+  const source = "test('self-contained', async () => {});";
+
+  await writeFile(insidePath, source, 'utf8');
+  await writeFile(outsidePath, source, 'utf8');
+  process.chdir(workspace);
+
+  try {
+    assert.equal((await describeExecutionApproval({ testPath: 'inside.spec.ts' })).target, 'inside.spec.ts');
+    await assert.rejects(() => describeExecutionApproval({ testPath: outsidePath }), /must be relative/);
+    await assert.rejects(
+      () => describeExecutionApproval({ testPath: path.relative(workspace, outsidePath) }),
+      /escapes the active workspace/
+    );
+    await symlink(outsidePath, path.join(workspace, 'linked.spec.ts'));
+    await assert.rejects(
+      () => describeExecutionApproval({ testPath: 'linked.spec.ts' }),
+      /escapes the active workspace/
+    );
+  } finally {
+    process.chdir(originalDirectory);
+    await rm(workspace, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
 test('code execution requires a client-visible human approval elicitation bound to the exact test', async () => {
   const source = "import { test, expect } from '@playwright/test'; test('approval', () => expect(true).toBe(true));";
   const makeClient = async (approval) => {

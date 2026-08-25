@@ -294,7 +294,11 @@ async function resolveWorkspaceTestPath(workspaceRoot: string, requestedPath: st
   if (path.isAbsolute(requestedPath)) {
     throw new Error('testPath must be relative to the active workspace.');
   }
-  const resolved = await realpath(path.resolve(workspaceRoot, requestedPath));
+  const candidate = path.resolve(workspaceRoot, requestedPath);
+  // Reject lexical traversal before touching the candidate, then repeat the
+  // containment check after realpath so a workspace symlink cannot escape.
+  assertWithin(workspaceRoot, candidate, 'testPath escapes the active workspace.');
+  const resolved = await realpath(candidate);
   assertWithin(workspaceRoot, resolved, 'testPath escapes the active workspace.');
   return resolved;
 }
