@@ -9,7 +9,8 @@ const { formatBytes, mergeResourceSignals, transferBytes } = require('../dist/to
 const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/tools/checks/trackers.js');
 const { renderReport } = require('../dist/report.js');
 const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
-const { SUPPORTED_CHECKS, resolveChecks } = require('../dist/tools/scan-url.js');
+const { SUPPORTED_CHECKS, checkSecurityHeaders, resolveChecks } = require('../dist/tools/scan-url.js');
+const { describeApprovalFailure } = require('../dist/server.js');
 
 const messages = (findings) => findings.map((finding) => finding.message);
 const bySeverity = (findings, severity) => findings.filter((finding) => finding.severity === severity);
@@ -445,4 +446,58 @@ test('an empty inspect_page snapshot is explained, a populated one is not', () =
   assert.deepEqual(emptySnapshotWarnings({ headings: 1, interactive: 0, forms: 0 }, 102), []);
   assert.deepEqual(emptySnapshotWarnings({ headings: 0, interactive: 11, forms: 0 }, 102), []);
   assert.deepEqual(emptySnapshotWarnings({ headings: 0, interactive: 0, forms: 1 }, 102), []);
+});
+
+test('HSTS is reported as inapplicable, not missing, on a plain-HTTP page', () => {
+  // Browsers ignore Strict-Transport-Security over http://, so its absence there
+  // is not a fixable defect. Reporting it as medium put an unavoidable penalty on
+  // every local scan; mixed_content already downgrades itself for the same reason.
+  const http = checkSecurityHeaders({}, 'http://localhost:3000/login');
+  const hsts = http.find((finding) => /HSTS|strict-transport/i.test(finding.message));
+  assert.equal(hsts.severity, 'info');
+  assert.match(hsts.message, /does not apply/);
+  // The genuinely actionable header findings still stand on an HTTP page.
+  assert.ok(http.some((f) => f.message === 'Missing content-security-policy header.' && f.severity === 'medium'));
+
+  // On HTTPS it remains a real finding.
+  const https = checkSecurityHeaders({}, 'https://example.com/');
+  const httpsHsts = https.find((finding) => /strict-transport/i.test(finding.message));
+  assert.equal(httpsHsts.severity, 'medium');
+  assert.match(httpsHsts.message, /^Missing strict-transport-security header\.$/);
+
+  // A present header is never reported, on either scheme.
+  assert.equal(
+    checkSecurityHeaders({ 'strict-transport-security': 'max-age=63072000' }, 'https://example.com/')
+      .some((f) => /strict-transport/i.test(f.message)),
+    false
+  );
+});
+
+test('approval failures name the mode, the outcome, and the way out', () => {
+  const base = { digest: 'a'.repeat(64), client: 'test-client' };
+
+  // The four cases used to collapse into two messages, neither of which said
+  // which mode the server was in or how to change it.
+  const unsupported = describeApprovalFailure({ ...base, reason: 'client-unsupported' });
+  assert.match(unsupported, /cannot provide verifiable human approval/);
+  assert.match(unsupported, /form elicitation/);
+
+  const declined = describeApprovalFailure({ ...base, reason: 'declined' });
+  const cancelled = describeApprovalFailure({ ...base, reason: 'cancelled' });
+  const notApproved = describeApprovalFailure({ ...base, reason: 'not-approved' });
+  assert.match(declined, /declined by the human reviewer/);
+  assert.match(cancelled, /cancelled before an answer/);
+  assert.match(notApproved, /answered without granting approval/);
+  // Distinguishable from each other, which is the whole point.
+  assert.equal(new Set([declined, cancelled, notApproved]).size, 3);
+
+  // Every message states the mode, a digest prefix, the client, and the remedy.
+  for (const message of [unsupported, declined, cancelled, notApproved]) {
+    assert.match(message, /gated mode/);
+    assert.match(message, /digest aaaaaaaaaaaa/);
+    assert.match(message, /client test-client/);
+    assert.match(message, /--unattended/);
+  }
+  // The full digest is not echoed; a prefix is enough to correlate.
+  assert.equal(declined.includes('a'.repeat(64)), false);
 });

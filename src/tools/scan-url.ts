@@ -510,20 +510,43 @@ async function withConcurrency<T>(items: T[], limit: number, worker: (item: T) =
   );
 }
 
-function checkSecurityHeaders(headers: Record<string, string>, url: string): Finding[] {
+export function checkSecurityHeaders(headers: Record<string, string>, url: string): Finding[] {
   const required: Array<[string, string, Finding['severity']]> = [
     ['content-security-policy', 'Add a Content-Security-Policy to reduce script injection risk.', 'medium'],
     ['strict-transport-security', 'Add HSTS on HTTPS sites.', 'medium'],
     ['x-content-type-options', 'Add X-Content-Type-Options: nosniff.', 'low'],
     ['referrer-policy', 'Add a Referrer-Policy header.', 'low'],
   ];
-  return required
-    .filter(([header]) => !headers[header])
-    .map(([header, suggestion, severity]) => ({
+  const isHttps = url.startsWith('https://');
+  const findings: Finding[] = [];
+
+  for (const [header, suggestion, severity] of required) {
+    if (headers[header]) continue;
+
+    // Browsers ignore Strict-Transport-Security delivered over plain HTTP, so on
+    // an http:// target its absence is not a defect the page can fix — it is a
+    // question the scan cannot answer yet. Reporting it as a medium finding made
+    // every local scan carry an unfixable penalty, which trains readers to
+    // discount the grade. `mixed_content` already downgrades itself to info for
+    // the same reason; this keeps the two consistent.
+    if (header === 'strict-transport-security' && !isHttps) {
+      findings.push({
+        severity: 'info',
+        category: 'security_headers',
+        message: 'HSTS does not apply: the page itself was served over HTTP.',
+        suggestion: 'Serve the page over HTTPS, then rescan to check for Strict-Transport-Security.',
+      });
+      continue;
+    }
+
+    findings.push({
       severity,
       category: 'security_headers',
       message: `Missing ${header} header.`,
       repro: `curl -sI ${url} | grep -i ${header}`,
       suggestion,
-    }));
+    });
+  }
+
+  return findings;
 }
