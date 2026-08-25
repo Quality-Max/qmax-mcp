@@ -35,21 +35,22 @@ returns the matched selector and text excerpt so a human can confirm it.
 
 ## Authenticated page inspection
 
-`inspect_page` accepts an optional `storageStatePath` pointing to a Playwright
-storage-state JSON file. The path is relative to the active workspace. Absolute
-paths, traversal, symlink escapes, non-files, and files over 10 MB are rejected.
-The file is read only to initialize a fresh browser context and is not modified.
-Neither its path nor its cookie and origin values are included in the result.
+`scan_url` and `inspect_page` accept an optional `storageStatePath` pointing to a
+Playwright storage-state JSON file. The path is relative to the active
+workspace. Absolute paths, traversal, symlink escapes, non-files, and files over
+10 MB are rejected. The file is read only to initialize a fresh browser context
+and is not modified. Neither its path nor its cookie and origin values are
+included in the result.
 
 Storage-state files contain live credentials and must be kept out of source
 control, logs, prompts, and generated artifacts. Use a dedicated state file
 containing only the credentials needed by the inspected application. The
 inspected page can use those credentials to return private content, and
-`inspect_page` intentionally returns bounded structure and text from that page.
-Callers must therefore treat authenticated inspection results as potentially
-sensitive. The usual browser network policy still applies to the target,
-redirects, subresources, and WebSocket connections; providing state does not
-broaden private-network access.
+`scan_url` may return findings about it, while `inspect_page` intentionally
+returns bounded structure and text from that page. Callers must therefore treat
+authenticated results as potentially sensitive. The usual browser network
+policy still applies to the target, redirects, subresources, and WebSocket
+connections; providing state does not broaden private-network access.
 
 ## Generated repro output
 
