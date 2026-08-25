@@ -10,6 +10,35 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.6.0 — 2026-08-25
+
+### Added
+
+- `scan_url` accepts a workspace-relative `storageStatePath` for authenticated
+  pages and uses those credentials for same-origin link checks, so protected
+  links are not falsely reported as HTTP 401. Cross-origin and fallback probes
+  remain credential-free, and credential material is never returned ([#69]).
+- Accessibility scans report apparent mouse-only controls, including
+  interactive ARIA roles that are not keyboard-focusable, without duplicating
+  findings for nested clickable elements ([#69]).
+
+### Changed
+
+- Authenticated `scan_url` and `inspect_page` calls require explicit
+  `acknowledgePrivateContent: true` consent because their findings may contain
+  information from private pages ([#69]).
+- `run_playwright_test` rejects workspace-relative imports before executing an
+  isolated source snapshot and names every offending path. Import-like prose in
+  comments and string or template text is ignored, while executable template
+  expressions and dynamic imports remain covered ([#69]).
+
+### Security
+
+- Workspace path checks canonicalize their root and reject traversal and
+  symlink escapes. Isolated runner environment additions are count-, name-, and
+  value-bounded, cannot replace process-control variables, and run directories
+  use full UUID names with owner-only permissions ([#69]).
+
 ## 0.5.1 — 2026-08-25
 
 ### Fixed
@@ -196,3 +225,4 @@ account, API key, or hosted service required.
 [#66]: https://github.com/Quality-Max/qmax-mcp/pull/66
 [#67]: https://github.com/Quality-Max/qmax-mcp/pull/67
 [#68]: https://github.com/Quality-Max/qmax-mcp/pull/68
+[#69]: https://github.com/Quality-Max/qmax-mcp/pull/69
