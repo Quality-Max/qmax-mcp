@@ -10,6 +10,25 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.5.1 — 2026-08-25
+
+### Fixed
+
+- `scan_url` now rejects unknown check names instead of silently skipping them
+  and potentially returning a misleading perfect score ([#66]).
+- `inspect_page` gives client-rendered pages a bounded chance to settle, reports
+  DOM diagnostics and an actionable warning for empty snapshots, and produces
+  unique fallback selectors for findings in both page inspection and URL scans
+  ([#68]).
+- Code-execution approval failures now identify the outcome, active approval
+  mode, client and remedy. Missing HSTS is reported as informational on plain
+  HTTP pages, where browsers do not apply the header ([#67]).
+
+### Documentation
+
+- The adjacent open-source tools table now shows live public usage counts
+  ([#57]).
+
 ## 0.5.0 — 2026-08-24
 
 ### Added
@@ -172,3 +191,8 @@ account, API key, or hosted service required.
 [#43]: https://github.com/Quality-Max/qmax-mcp/pull/43
 [#46]: https://github.com/Quality-Max/qmax-mcp/pull/46
 [#48]: https://github.com/Quality-Max/qmax-mcp/pull/48
+[#53]: https://github.com/Quality-Max/qmax-mcp/pull/53
+[#57]: https://github.com/Quality-Max/qmax-mcp/pull/57
+[#66]: https://github.com/Quality-Max/qmax-mcp/pull/66
+[#67]: https://github.com/Quality-Max/qmax-mcp/pull/67
+[#68]: https://github.com/Quality-Max/qmax-mcp/pull/68
