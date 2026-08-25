@@ -8,6 +8,7 @@ const { analyzeVitals } = require('../dist/tools/checks/vitals.js');
 const { formatBytes, mergeResourceSignals, transferBytes } = require('../dist/tools/checks/signals.js');
 const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/tools/checks/trackers.js');
 const { renderReport } = require('../dist/report.js');
+const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
 const { SUPPORTED_CHECKS, resolveChecks } = require('../dist/tools/scan-url.js');
 
 const messages = (findings) => findings.map((finding) => finding.message);
@@ -429,4 +430,19 @@ test('every supported check name is reachable in scan-url', () => {
   for (const check of SUPPORTED_CHECKS) {
     assert.ok(source.includes(`'${check}'`), `${check} is not referenced in scan-url`);
   }
+});
+
+test('an empty inspect_page snapshot is explained, a populated one is not', () => {
+  // The bug: all-empty arrays with no explanation read as authoritative, so
+  // "page has no controls" and "page had not rendered yet" were indistinguishable.
+  const empty = emptySnapshotWarnings({ headings: 0, interactive: 0, forms: 0 }, 3);
+  assert.equal(empty.length, 1);
+  // The node count is the part that disambiguates: 3 nodes is an empty shell.
+  assert.match(empty[0], /3 DOM nodes/);
+  assert.match(empty[0], /mid-render/);
+
+  // Any one signal of content is enough to stay quiet — no noise on real pages.
+  assert.deepEqual(emptySnapshotWarnings({ headings: 1, interactive: 0, forms: 0 }, 102), []);
+  assert.deepEqual(emptySnapshotWarnings({ headings: 0, interactive: 11, forms: 0 }, 102), []);
+  assert.deepEqual(emptySnapshotWarnings({ headings: 0, interactive: 0, forms: 1 }, 102), []);
 });

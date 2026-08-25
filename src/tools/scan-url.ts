@@ -178,7 +178,33 @@ export async function scanUrl(args: ScanUrlArgs) {
           if (id) return `#${CSS.escape(id)}`;
           const testId = el.getAttribute('data-testid') || el.getAttribute('data-test');
           if (testId) return `[data-testid="${testId}"]`;
-          return el.tagName.toLowerCase();
+          // Fall back to a path rather than the bare tag name. Two unnamed
+          // anchors previously produced two findings both reading `selector: "a"`
+          // with the same repro step ("Inspect `a`"), which matches every link on
+          // the page — the finding was correct but identified nothing.
+          const parts: string[] = [];
+          let node: Element | null = el;
+          while (node && parts.length < 6) {
+            const tag = node.tagName.toLowerCase();
+            if (tag === 'body' || tag === 'html') {
+              parts.unshift(tag);
+              break;
+            }
+            const nodeId = node.getAttribute('id');
+            if (nodeId) {
+              parts.unshift(`#${CSS.escape(nodeId)}`);
+              break;
+            }
+            const parent: Element | null = node.parentElement;
+            if (!parent) {
+              parts.unshift(tag);
+              break;
+            }
+            const twins = Array.from(parent.children).filter((child) => child.tagName === node!.tagName);
+            parts.unshift(twins.length > 1 ? `${tag}:nth-of-type(${twins.indexOf(node) + 1})` : tag);
+            node = parent;
+          }
+          return parts.join(' > ');
         };
 
         for (const img of Array.from(document.images)) {
