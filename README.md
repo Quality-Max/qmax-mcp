@@ -44,6 +44,8 @@ All nine checks run off a single page load. Pass `checks` to run a subset.
 | `mixed_content` | HTTP subresources and form actions on an HTTPS page, split into browser-blocked active and passive |
 | `weight` | Transfer bytes, request count, render-blocking resources, oversized and uncompressed assets, third-party cost |
 
+Names must match exactly. An unrecognised name is rejected with the supported list rather than skipped, so a typo cannot quietly turn a check off and still return a score.
+
 `scan_url` also returns a `metrics` block with the measured vitals and the page-weight breakdown, including the slowest requests. Two limits are stated in that block rather than hidden: **INP is not measured**, because it needs real user interaction, and vitals come from one cold load on the scanning machine, not from field data. Set `weightBudget` to scan against your own performance budget.
 
 ### What the report looks like
