@@ -87,12 +87,15 @@ test('two MCP client fixtures receive the locked safety annotations and descript
     assert.deepEqual(received, expected);
 
     const generated = tools.find((tool) => tool.name === 'generate_playwright_repro');
+    const scan = tools.find((tool) => tool.name === 'scan_url');
     const inspect = tools.find((tool) => tool.name === 'inspect_page');
     const run = tools.find((tool) => tool.name === 'run_playwright_test');
     assert.match(generated.description, /approved workspace directory/);
     assert.equal(generated.inputSchema.properties.overwrite.type, 'boolean');
     assert.match(inspect.description, /storage-state file for authenticated pages/);
     assert.equal(inspect.inputSchema.properties.storageStatePath.type, 'string');
+    assert.deepEqual(inspect.inputSchema.properties.acknowledgePrivateContent, { type: 'boolean', const: true });
+    assert.deepEqual(scan.inputSchema.properties.acknowledgePrivateContent, { type: 'boolean', const: true });
     assert.match(run.description, /code-execution and artifact-writing boundary/);
     assert.equal(run.inputSchema.properties.executionAcknowledged, undefined);
     assert.equal(run.inputSchema.properties.unattended, undefined);
@@ -138,6 +141,37 @@ test('inspect_page storage-state paths stay within the workspace and are bounded
         assert.equal(error.message.includes(workspace), false);
         return true;
       }
+    );
+  } finally {
+    process.chdir(originalDirectory);
+    await rm(workspace, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test('run_playwright_test paths reject lexical traversal and symlink escapes', async () => {
+  const originalDirectory = process.cwd();
+  const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-test-path-'));
+  const outside = await mkdtemp(path.join(tmpdir(), 'qmax-test-path-outside-'));
+  const insidePath = path.join(workspace, 'inside.spec.ts');
+  const outsidePath = path.join(outside, 'outside.spec.ts');
+  const source = "test('self-contained', async () => {});";
+
+  await writeFile(insidePath, source, 'utf8');
+  await writeFile(outsidePath, source, 'utf8');
+  process.chdir(workspace);
+
+  try {
+    assert.equal((await describeExecutionApproval({ testPath: 'inside.spec.ts' })).target, 'inside.spec.ts');
+    await assert.rejects(() => describeExecutionApproval({ testPath: outsidePath }), /must be relative/);
+    await assert.rejects(
+      () => describeExecutionApproval({ testPath: path.relative(workspace, outsidePath) }),
+      /escapes the active workspace/
+    );
+    await symlink(outsidePath, path.join(workspace, 'linked.spec.ts'));
+    await assert.rejects(
+      () => describeExecutionApproval({ testPath: 'linked.spec.ts' }),
+      /escapes the active workspace/
     );
   } finally {
     process.chdir(originalDirectory);
@@ -293,6 +327,13 @@ test('the test runner excludes parent credentials, supports explicit values, red
     );
     assert.equal(allowedResult.stdout, 'visible');
     assert.throws(() => createChildEnvironment({ allowedEnv: { PATH: 'invalid' } }), /reserved/);
+    assert.throws(() => createChildEnvironment({ allowedEnv: { Path: 'invalid' } }), /reserved/);
+    assert.throws(() => createChildEnvironment({ allowedEnv: { NODE_OPTIONS: '--inspect' } }), /reserved/);
+    assert.throws(() => createChildEnvironment({ allowedEnv: { QMAX_TEST_VISIBLE: 'bad\0value' } }), /invalid value/);
+    assert.throws(
+      () => createChildEnvironment({ allowedEnv: Object.fromEntries(Array.from({ length: 33 }, (_, index) => [`SAFE_${index}`, 'value'])) }),
+      /at most 32/
+    );
 
     const redacted = redactSensitiveText('Authorization: Bearer test-redaction-sentinel?api_key=test-redaction-sentinel');
     assert.equal(redacted.includes('test-redaction-sentinel'), false);

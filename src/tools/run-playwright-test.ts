@@ -28,7 +28,22 @@ export type ExecutionApprovalSummary = {
   source: 'inline code' | 'local test file';
 };
 
-const RESERVED_ENVIRONMENT_KEYS = new Set(['BASE_URL', 'NODE_PATH', 'PATH', 'TMP', 'TEMP', 'TMPDIR']);
+const RESERVED_ENVIRONMENT_KEYS = new Set([
+  'BASE_URL',
+  'NODE_PATH',
+  'PATH',
+  'TMP',
+  'TEMP',
+  'TMPDIR',
+  'NODE_OPTIONS',
+  'BUN_OPTIONS',
+  'DENO_DIR',
+  'NPM_CONFIG_PREFIX',
+  'NPM_CONFIG_SCRIPT_SHELL',
+  'NPM_CONFIG_USERCONFIG',
+]);
+const MAX_ALLOWED_ENVIRONMENT_ENTRIES = 32;
+const MAX_ALLOWED_ENVIRONMENT_VALUE_LENGTH = 8_192;
 const MAX_CAPTURED_OUTPUT = 200_000;
 
 export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: RunPlaywrightTestOptions = {}) {
@@ -105,6 +120,120 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
   };
 }
 
+function isCodePosition(sourceCode: string, position: number): boolean {
+  let index = 0;
+  let mode: 'code' | 'template' = 'code';
+  const templateExpressionDepths: number[] = [];
+
+  while (index < position) {
+    const current = sourceCode[index];
+    const next = sourceCode[index + 1];
+
+    if (mode === 'template') {
+      if (current === '\\') {
+        index += 2;
+        continue;
+      }
+      if (current === '`') {
+        templateExpressionDepths.pop();
+        mode = 'code';
+        index += 1;
+        continue;
+      }
+      if (current === '$' && next === '{') {
+        templateExpressionDepths[templateExpressionDepths.length - 1] = 1;
+        mode = 'code';
+        index += 2;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+
+    if (current === '/' && next === '/') {
+      const end = sourceCode.indexOf('\n', index + 2);
+      if (end === -1 || position < end) return false;
+      index = end + 1;
+      continue;
+    }
+    if (current === '/' && next === '*') {
+      const end = sourceCode.indexOf('*/', index + 2);
+      if (end === -1 || position < end + 2) return false;
+      index = end + 2;
+      continue;
+    }
+    if (current === "'" || current === '"') {
+      const delimiter = current;
+      index += 1;
+      while (index < sourceCode.length) {
+        if (sourceCode[index] === '\\') {
+          index += 2;
+          continue;
+        }
+        if (sourceCode[index] === delimiter) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      if (position < index) return false;
+      continue;
+    }
+    if (current === '`') {
+      templateExpressionDepths.push(0);
+      mode = 'template';
+      index += 1;
+      continue;
+    }
+    if (templateExpressionDepths.length > 0) {
+      const depthIndex = templateExpressionDepths.length - 1;
+      if (current === '{') {
+        templateExpressionDepths[depthIndex] += 1;
+      } else if (current === '}') {
+        templateExpressionDepths[depthIndex] -= 1;
+        if (templateExpressionDepths[depthIndex] === 0) mode = 'template';
+      }
+    }
+    index += 1;
+  }
+  return mode === 'code';
+}
+
+/**
+ * Reject a test that imports from a relative path, before anything is executed.
+ *
+ * The runner snapshots the *source* into an isolated directory and runs it under
+ * a generated config, so `./helpers` no longer resolves — the test fails to load
+ * rather than failing an assertion, and the error names a temp path that means
+ * nothing to the caller. The tool description says it can execute "a local test
+ * file", which reads as "a spec from my project", so this is a very easy mistake
+ * to make; failing here says why, once, instead of leaving a module-not-found to
+ * be decoded.
+ */
+export function assertSelfContainedTest(sourceCode: string): void {
+  const relativeImports = new Set<string>();
+  const patterns = [
+    /\bfrom\s+['"](\.[^'"]*)['"]/g,
+    /\bimport\s+['"](\.[^'"]*)['"]/g,
+    /\bimport\s*\(\s*['"](\.[^'"]*)['"]\s*\)/g,
+    /\brequire\s*\(\s*['"](\.[^'"]*)['"]\s*\)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of sourceCode.matchAll(pattern)) {
+      if (match.index !== undefined && isCodePosition(sourceCode, match.index)) relativeImports.add(match[1]);
+    }
+  }
+  if (relativeImports.size === 0) return;
+
+  throw new Error(
+    `This test imports from a relative path (${Array.from(relativeImports).join(', ')}), ` +
+      'which will not resolve: the runner executes a snapshot of the source in an isolated ' +
+      'directory under a generated Playwright config, so the workspace\'s own modules and ' +
+      'playwright.config are not available. Inline what the test needs, or run it directly ' +
+      'with your project config.'
+  );
+}
+
 /**
  * Create an authorization subject from every execution-affecting input. The
  * server authorizes this digest using its startup-selected mode, then the
@@ -119,9 +248,12 @@ export async function describeExecutionApproval(
     throw new Error('Provide either testPath or code');
   }
 
-  const resolvedWorkspaceRoot = workspaceRoot ?? (await realpath(process.cwd()));
+  // Resolve even an explicitly supplied root so all containment checks use the
+  // canonical directory rather than trusting a caller-provided symlink path.
+  const resolvedWorkspaceRoot = await realpath(workspaceRoot ?? process.cwd());
   const sourcePath = args.testPath ? await resolveWorkspaceTestPath(resolvedWorkspaceRoot, args.testPath) : undefined;
   const sourceCode = sourcePath ? await readFile(sourcePath, 'utf8') : args.code || '';
+  assertSelfContainedTest(sourceCode);
   const target = sourcePath ? toWorkspaceRelative(resolvedWorkspaceRoot, sourcePath) : 'inline Playwright test';
   const input = {
     target,
@@ -156,9 +288,24 @@ export function createChildEnvironment(args: RunPlaywrightTestArgs): Record<stri
     environment.ComSpec = process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe';
   }
 
-  for (const [key, value] of Object.entries(args.allowedEnv || {})) {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || RESERVED_ENVIRONMENT_KEYS.has(key)) {
+  const allowedEntries = Object.entries(args.allowedEnv || {});
+  if (allowedEntries.length > MAX_ALLOWED_ENVIRONMENT_ENTRIES) {
+    throw new Error(`allowedEnv may contain at most ${MAX_ALLOWED_ENVIRONMENT_ENTRIES} variables.`);
+  }
+  for (const [key, value] of allowedEntries) {
+    if (
+      key.length > 128 ||
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ||
+      RESERVED_ENVIRONMENT_KEYS.has(key.toUpperCase())
+    ) {
       throw new Error(`allowedEnv contains an invalid or reserved variable name: ${key}`);
+    }
+    if (
+      typeof value !== 'string' ||
+      value.length > MAX_ALLOWED_ENVIRONMENT_VALUE_LENGTH ||
+      value.includes('\0')
+    ) {
+      throw new Error(`allowedEnv contains an invalid value for variable: ${key}`);
     }
     environment[key] = value;
   }
@@ -170,8 +317,10 @@ async function createRunDirectory(workspaceRoot: string): Promise<string> {
   await mkdir(root, { recursive: true });
   const resolvedRoot = await realpath(root);
   assertWithin(workspaceRoot, resolvedRoot, 'The controlled run directory resolves outside the workspace.', true);
-  const directory = path.join(resolvedRoot, `run-${Date.now()}-${randomUUID().slice(0, 8)}`);
-  await mkdir(directory);
+  // A full UUID prevents another local process from guessing a pending run
+  // directory, while owner-only permissions protect its test and artifacts.
+  const directory = path.join(resolvedRoot, `run-${randomUUID()}`);
+  await mkdir(directory, { mode: 0o700 });
   return directory;
 }
 
@@ -179,7 +328,11 @@ async function resolveWorkspaceTestPath(workspaceRoot: string, requestedPath: st
   if (path.isAbsolute(requestedPath)) {
     throw new Error('testPath must be relative to the active workspace.');
   }
-  const resolved = await realpath(path.resolve(workspaceRoot, requestedPath));
+  const candidate = path.resolve(workspaceRoot, requestedPath);
+  // Reject lexical traversal before touching the candidate, then repeat the
+  // containment check after realpath so a workspace symlink cannot escape.
+  assertWithin(workspaceRoot, candidate, 'testPath escapes the active workspace.');
+  const resolved = await realpath(candidate);
   assertWithin(workspaceRoot, resolved, 'testPath escapes the active workspace.');
   return resolved;
 }

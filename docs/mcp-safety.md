@@ -35,21 +35,24 @@ returns the matched selector and text excerpt so a human can confirm it.
 
 ## Authenticated page inspection
 
-`inspect_page` accepts an optional `storageStatePath` pointing to a Playwright
-storage-state JSON file. The path is relative to the active workspace. Absolute
-paths, traversal, symlink escapes, non-files, and files over 10 MB are rejected.
-The file is read only to initialize a fresh browser context and is not modified.
-Neither its path nor its cookie and origin values are included in the result.
+`scan_url` and `inspect_page` accept an optional `storageStatePath` pointing to a
+Playwright storage-state JSON file. The path is relative to the active
+workspace. Absolute paths, traversal, symlink escapes, non-files, and files over
+10 MB are rejected. The file is read only to initialize a fresh browser context
+and is not modified. Neither its path nor its cookie and origin values are
+included in the result. Supplying state also requires
+`acknowledgePrivateContent:true`, an explicit caller confirmation that the
+result may contain private page content.
 
 Storage-state files contain live credentials and must be kept out of source
 control, logs, prompts, and generated artifacts. Use a dedicated state file
 containing only the credentials needed by the inspected application. The
 inspected page can use those credentials to return private content, and
-`inspect_page` intentionally returns bounded structure and text from that page.
-Callers must therefore treat authenticated inspection results as potentially
-sensitive. The usual browser network policy still applies to the target,
-redirects, subresources, and WebSocket connections; providing state does not
-broaden private-network access.
+`scan_url` may return findings about it, while `inspect_page` intentionally
+returns bounded structure and text from that page. Callers must therefore treat
+authenticated results as potentially sensitive. The usual browser network
+policy still applies to the target, redirects, subresources, and WebSocket
+connections; providing state does not broaden private-network access.
 
 ## Generated repro output
 
@@ -76,7 +79,8 @@ host path. Generated repros are durable workspace artifacts; remove the
 `PATH`, a temporary-directory setting, the runner's Playwright dependency
 path, `BASE_URL` from the request, and a runner marker. It does not inherit the
 parent process environment. A caller may deliberately add non-sensitive values
-with `allowedEnv`; reserved process-control variables cannot be replaced.
+with `allowedEnv`; names and values are bounded, NUL bytes are rejected, and
+reserved process-control variables such as `NODE_OPTIONS` cannot be replaced.
 In the default mode, the server issues an MCP form elicitation before each call.
 It states the execution target, its code-execution/filesystem/network effects,
 and a SHA-256 digest of the test source plus every execution-affecting option.

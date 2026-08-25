@@ -146,7 +146,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
     {
       title: 'Scan URL',
       description:
-        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
+        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. storageStatePath may name a workspace-relative Playwright storage-state file so the checks can run on an authenticated page; its credentials are loaded into the throwaway browser context and never returned. Because returned findings may reflect private content, authenticated scans also require acknowledgePrivateContent:true as explicit caller consent. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -156,6 +156,8 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
       inputSchema: {
         url: z.string().url(),
         checks: z.array(z.enum(SUPPORTED_CHECKS)).optional(),
+        storageStatePath: z.string().min(1).optional(),
+        acknowledgePrivateContent: z.literal(true).optional(),
         maxLinks: z.number().int().min(0).max(250).optional(),
         screenshot: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),
@@ -188,7 +190,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
     {
       title: 'Inspect Page',
       description:
-        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. storageStatePath may name a workspace-relative Playwright storage-state file for authenticated pages; its credentials are loaded into the throwaway browser context and never returned, but the returned page content may be private. Does not intentionally modify the target or local filesystem. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
+        'Read page structure through outbound browser network requests and return headings, forms, buttons, links, inputs, role/name selectors, and data-testid candidates. storageStatePath may name a workspace-relative Playwright storage-state file for authenticated pages; its credentials are loaded into the throwaway browser context and never returned. Because returned page content may be private, authenticated inspection also requires acknowledgePrivateContent:true as explicit caller consent. Does not intentionally modify the target or local filesystem. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -201,6 +203,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
         includeForms: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),
         storageStatePath: z.string().min(1).optional(),
+        acknowledgePrivateContent: z.literal(true).optional(),
         viewport: z
           .object({
             width: z.number().int().min(320).max(3840),
@@ -257,7 +260,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
         headed: z.boolean().optional(),
         timeoutMs: z.number().int().min(1000).max(300000).optional(),
         wallClockTimeoutMs: z.number().int().min(1000).max(330000).optional(),
-        allowedEnv: z.record(z.string(), z.string()).optional(),
+        allowedEnv: z.record(z.string().max(128), z.string().max(8192)).optional(),
       },
     },
     async (args, extra) => {

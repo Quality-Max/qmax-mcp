@@ -8,6 +8,7 @@ const { analyzeVitals } = require('../dist/tools/checks/vitals.js');
 const { formatBytes, mergeResourceSignals, transferBytes } = require('../dist/tools/checks/signals.js');
 const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/tools/checks/trackers.js');
 const { renderReport } = require('../dist/report.js');
+const { assertSelfContainedTest } = require('../dist/tools/run-playwright-test.js');
 const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
 const { SUPPORTED_CHECKS, checkSecurityHeaders, resolveChecks } = require('../dist/tools/scan-url.js');
 const { describeApprovalFailure } = require('../dist/server.js');
@@ -500,4 +501,44 @@ test('approval failures name the mode, the outcome, and the way out', () => {
   }
   // The full digest is not echoed; a prefix is enough to correlate.
   assert.equal(declined.includes('a'.repeat(64)), false);
+});
+
+test('a test importing from a relative path is rejected before execution', () => {
+  // The runner snapshots the source into an isolated directory, so './helpers'
+  // stops resolving and the spec fails to *load* — previously surfacing as a
+  // module-not-found against a temp path. Say why instead.
+  const withImport = "import { test } from '@playwright/test';\nimport { login } from './helpers';\ntest('x', async () => {});";
+  assert.throws(() => assertSelfContainedTest(withImport), /relative path \(\.\/helpers\)/);
+  assert.throws(() => assertSelfContainedTest(withImport), /playwright\.config are not available/);
+
+  // Bare specifiers are fine — those resolve from the workspace's node_modules.
+  assert.doesNotThrow(() =>
+    assertSelfContainedTest("import { test, expect } from '@playwright/test';\ntest('x', async () => {});")
+  );
+
+  // Import-like prose in comments and string literals is documentation, not a
+  // dependency. The fail-fast used to reject these valid self-contained tests.
+  assert.doesNotThrow(() =>
+    assertSelfContainedTest(
+      "// Project mode can import './helpers'.\nconst docs = \"Do not require('../setup') here\";\ntest('x', async () => {});"
+    )
+  );
+  assert.doesNotThrow(() =>
+    assertSelfContainedTest("const docs = `Example: import './helpers'`;\ntest('x', async () => {});")
+  );
+  // A template's raw text is documentation, but ${...} is executable code.
+  assert.throws(
+    () => assertSelfContainedTest("const helper = `${require('./helpers')}`;"),
+    /relative path \(\.\/helpers\)/
+  );
+
+  // All three import forms are covered, and parent-relative paths too.
+  assert.throws(() => assertSelfContainedTest("const h = require('../helpers');"), /\.\.\/helpers/);
+  assert.throws(() => assertSelfContainedTest("import './setup';"), /\.\/setup/);
+  assert.throws(() => assertSelfContainedTest("const setup = await import('./setup');"), /\.\/setup/);
+  // Every offending path is named, not just the first.
+  assert.throws(
+    () => assertSelfContainedTest("import a from './a';\nimport b from './b';"),
+    /\.\/a, \.\/b/
+  );
 });
