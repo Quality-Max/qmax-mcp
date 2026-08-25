@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { generatePlaywrightRepro } from './tools/generate-playwright-repro';
 import { inspectPage } from './tools/inspect-page';
 import { describeExecutionApproval, runPlaywrightTest, type RunPlaywrightTestArgs } from './tools/run-playwright-test';
-import { scanUrl } from './tools/scan-url';
+import { SUPPORTED_CHECKS, scanUrl } from './tools/scan-url';
 import { renderReport } from './report';
 import { renderServerInstructions } from './ecosystem';
 import { MCP_SERVER_NAME, PACKAGE_VERSION } from './metadata';
@@ -110,7 +110,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
       },
       inputSchema: {
         url: z.string().url(),
-        checks: z.array(z.string()).optional(),
+        checks: z.array(z.enum(SUPPORTED_CHECKS)).optional(),
         maxLinks: z.number().int().min(0).max(250).optional(),
         screenshot: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),

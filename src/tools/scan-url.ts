@@ -12,7 +12,12 @@ import { analyzeWeight, type WeightBudget, type WeightMetrics } from './checks/w
 import { safeFetch, safeUrlForDisplay } from './network-policy';
 import { redactSensitiveData } from './run-playwright-test';
 
-const DEFAULT_CHECKS = [
+/**
+ * Every check `scan_url` knows how to run, and the set it runs when the caller
+ * names none. Exported so the tool schema and the caller-facing error message
+ * are generated from one list rather than three copies of it.
+ */
+export const SUPPORTED_CHECKS = [
   'console',
   'links',
   'accessibility',
@@ -22,7 +27,39 @@ const DEFAULT_CHECKS = [
   'cookies',
   'mixed_content',
   'weight',
-];
+] as const;
+
+export type ScanCheck = (typeof SUPPORTED_CHECKS)[number];
+
+const DEFAULT_CHECKS: readonly string[] = SUPPORTED_CHECKS;
+
+/**
+ * Resolve the requested check names, rejecting any this build does not know.
+ *
+ * An unrecognised name used to be dropped silently: it matched no `checks.has()`
+ * branch, so the check never ran, yet the name was still echoed back in the
+ * response. A caller who misspelled one — `security-headers` for
+ * `security_headers`, say — got a scan that skipped it, and if *every* name was
+ * unrecognised the scan ran nothing at all and still scored 100, which is
+ * indistinguishable from a genuinely clean page. Anything gating on `score` or
+ * `findingCount` therefore failed open. Fail loudly instead; a typo is a caller
+ * bug worth surfacing, not a reason to report success.
+ */
+export function resolveChecks(requested: readonly string[] | undefined): Set<string> {
+  if (!requested || requested.length === 0) return new Set(DEFAULT_CHECKS);
+
+  const normalized = requested.map((item) => item.trim().toLowerCase()).filter((item) => item.length > 0);
+  if (normalized.length === 0) return new Set(DEFAULT_CHECKS);
+
+  const unknown = normalized.filter((item) => !(SUPPORTED_CHECKS as readonly string[]).includes(item));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown scan check(s): ${unknown.join(', ')}. Supported checks: ${SUPPORTED_CHECKS.join(', ')}.`,
+    );
+  }
+
+  return new Set(normalized);
+}
 
 /** Checks that need the page's own network and markup inventory. */
 const PAGE_INVENTORY_CHECKS = ['cookies', 'mixed_content', 'weight'];
@@ -45,7 +82,7 @@ export type ScanMetrics = {
 export async function scanUrl(args: ScanUrlArgs) {
   const url = validateHttpUrl(args.url);
   const displayUrl = safeUrlForDisplay(url);
-  const checks = new Set((args.checks && args.checks.length ? args.checks : DEFAULT_CHECKS).map((item) => item.toLowerCase()));
+  const checks = resolveChecks(args.checks);
   const findings: Finding[] = [];
   const consoleMessages: Array<{ type: string; text: string; location?: unknown }> = [];
   const requestFailures: Array<{ url: string; failure?: string }> = [];

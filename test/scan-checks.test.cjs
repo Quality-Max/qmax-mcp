@@ -8,6 +8,7 @@ const { analyzeVitals } = require('../dist/tools/checks/vitals.js');
 const { formatBytes, mergeResourceSignals, transferBytes } = require('../dist/tools/checks/signals.js');
 const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/tools/checks/trackers.js');
 const { renderReport } = require('../dist/report.js');
+const { SUPPORTED_CHECKS, resolveChecks } = require('../dist/tools/scan-url.js');
 
 const messages = (findings) => findings.map((finding) => finding.message);
 const bySeverity = (findings, severity) => findings.filter((finding) => finding.severity === severity);
@@ -387,4 +388,45 @@ test('reports without metrics omit the measurements section', () => {
   assert.match(report, /^`█{24}` 100 \/ 100$/m);
   // With nothing to compare against, a bar in every row would imply a magnitude that is not there.
   assert.match(report, /\| SEO \| 0 \|/);
+});
+
+test('unknown check names are rejected instead of silently skipped', () => {
+  // A misspelling used to match no `checks.has()` branch, so the check never ran
+  // while its name was still echoed back. With every name unknown, nothing ran
+  // at all and the scan still scored 100 — a clean result for zero work, which
+  // fails open for anything gating on `score` or `findingCount`.
+  assert.throws(() => resolveChecks(['security-headers']), /Unknown scan check\(s\): security-headers/);
+  assert.throws(() => resolveChecks(['security-headers']), /Supported checks: .*security_headers/);
+
+  // A valid name alongside an invalid one must fail too: previously the good one
+  // ran and the typo was dropped, so the caller got a partial scan reported as
+  // if it were the scan they asked for.
+  assert.throws(() => resolveChecks(['accessibility', 'totally-bogus-name']), /totally-bogus-name/);
+});
+
+test('supported check names resolve, and are normalised', () => {
+  assert.deepEqual([...resolveChecks(['accessibility'])], ['accessibility']);
+  assert.deepEqual([...resolveChecks(['  Accessibility  ', 'SEO'])], ['accessibility', 'seo']);
+  // Duplicates collapse rather than running a check twice.
+  assert.deepEqual([...resolveChecks(['seo', 'seo'])], ['seo']);
+});
+
+test('omitting checks runs every supported check', () => {
+  assert.deepEqual([...resolveChecks(undefined)], [...SUPPORTED_CHECKS]);
+  assert.deepEqual([...resolveChecks([])], [...SUPPORTED_CHECKS]);
+  // Whitespace-only entries are not a request for "no checks" — that would be a
+  // silent empty scan, which is the bug this guards.
+  assert.deepEqual([...resolveChecks(['   '])], [...SUPPORTED_CHECKS]);
+});
+
+test('every supported check name is reachable in scan-url', () => {
+  // Guards the list against drifting from the branches that consume it: a name
+  // present here but absent from scan-url would silently never run.
+  const source = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'dist', 'tools', 'scan-url.js'),
+    'utf8',
+  );
+  for (const check of SUPPORTED_CHECKS) {
+    assert.ok(source.includes(`'${check}'`), `${check} is not referenced in scan-url`);
+  }
 });
