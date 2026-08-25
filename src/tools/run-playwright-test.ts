@@ -105,6 +105,84 @@ export async function runPlaywrightTest(args: RunPlaywrightTestArgs, options: Ru
   };
 }
 
+function isCodePosition(sourceCode: string, position: number): boolean {
+  let index = 0;
+  let mode: 'code' | 'template' = 'code';
+  const templateExpressionDepths: number[] = [];
+
+  while (index < position) {
+    const current = sourceCode[index];
+    const next = sourceCode[index + 1];
+
+    if (mode === 'template') {
+      if (current === '\\') {
+        index += 2;
+        continue;
+      }
+      if (current === '`') {
+        templateExpressionDepths.pop();
+        mode = 'code';
+        index += 1;
+        continue;
+      }
+      if (current === '$' && next === '{') {
+        templateExpressionDepths[templateExpressionDepths.length - 1] = 1;
+        mode = 'code';
+        index += 2;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+
+    if (current === '/' && next === '/') {
+      const end = sourceCode.indexOf('\n', index + 2);
+      if (end === -1 || position < end) return false;
+      index = end + 1;
+      continue;
+    }
+    if (current === '/' && next === '*') {
+      const end = sourceCode.indexOf('*/', index + 2);
+      if (end === -1 || position < end + 2) return false;
+      index = end + 2;
+      continue;
+    }
+    if (current === "'" || current === '"') {
+      const delimiter = current;
+      index += 1;
+      while (index < sourceCode.length) {
+        if (sourceCode[index] === '\\') {
+          index += 2;
+          continue;
+        }
+        if (sourceCode[index] === delimiter) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      if (position < index) return false;
+      continue;
+    }
+    if (current === '`') {
+      templateExpressionDepths.push(0);
+      mode = 'template';
+      index += 1;
+      continue;
+    }
+    if (templateExpressionDepths.length > 0) {
+      const depthIndex = templateExpressionDepths.length - 1;
+      if (current === '{') {
+        templateExpressionDepths[depthIndex] += 1;
+      } else if (current === '}') {
+        templateExpressionDepths[depthIndex] -= 1;
+        if (templateExpressionDepths[depthIndex] === 0) mode = 'template';
+      }
+    }
+    index += 1;
+  }
+  return mode === 'code';
+}
 
 /**
  * Reject a test that imports from a relative path, before anything is executed.
@@ -122,10 +200,13 @@ export function assertSelfContainedTest(sourceCode: string): void {
   const patterns = [
     /\bfrom\s+['"](\.[^'"]*)['"]/g,
     /\bimport\s+['"](\.[^'"]*)['"]/g,
+    /\bimport\s*\(\s*['"](\.[^'"]*)['"]\s*\)/g,
     /\brequire\s*\(\s*['"](\.[^'"]*)['"]\s*\)/g,
   ];
   for (const pattern of patterns) {
-    for (const match of sourceCode.matchAll(pattern)) relativeImports.add(match[1]);
+    for (const match of sourceCode.matchAll(pattern)) {
+      if (match.index !== undefined && isCodePosition(sourceCode, match.index)) relativeImports.add(match[1]);
+    }
   }
   if (relativeImports.size === 0) return;
 

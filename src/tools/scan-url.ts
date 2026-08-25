@@ -178,7 +178,36 @@ export async function scanUrl(args: ScanUrlArgs) {
           await page.locator('a[href]').evaluateAll((els) => els.map((el) => (el as HTMLAnchorElement).href)),
           args.maxLinks ?? 50,
           Boolean(args.allowPrivateNetwork),
-          new URL(url).origin
+          new URL(url).origin,
+          async (targetUrl) =>
+            await page.evaluate(async (href) => {
+              const fetchStatus = async (method: 'HEAD' | 'GET') => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 10_000);
+                try {
+                  const response = await fetch(href, {
+                    method,
+                    credentials: 'same-origin',
+                    redirect: 'follow',
+                    signal: controller.signal,
+                  });
+                  const status = response.status;
+                  await response.body?.cancel().catch(() => undefined);
+                  return status;
+                } finally {
+                  clearTimeout(timeout);
+                }
+              };
+              try {
+                return await fetchStatus('HEAD');
+              } catch {
+                try {
+                  return await fetchStatus('GET');
+                } catch {
+                  return undefined;
+                }
+              }
+            }, targetUrl)
         ))
       );
     }
@@ -259,13 +288,27 @@ export async function scanUrl(args: ScanUrlArgs) {
         // React shape, and a clean accessibility result was previously being read
         // as evidence that such controls were reachable.
         const focusableSelector = 'a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
-        const focusables = Array.from(document.querySelectorAll(focusableSelector));
+        const interactiveRoles = new Set([
+          'button',
+          'checkbox',
+          'link',
+          'menuitem',
+          'menuitemcheckbox',
+          'menuitemradio',
+          'option',
+          'radio',
+          'switch',
+          'tab',
+          'treeitem',
+        ]);
         const seenClickable = new Set<Element>();
-        for (const el of Array.from(document.querySelectorAll('div, span, li, img, svg, i'))) {
+        for (const el of Array.from(document.querySelectorAll('div, span, li, img, svg, i, [role]'))) {
           if (el.matches(focusableSelector)) continue;
-          if (el.getAttribute('role')) continue;
-          if (getComputedStyle(el).cursor !== 'pointer') continue;
-          if (focusables.some((focusable) => focusable.contains(el))) continue;
+          const role = (el.getAttribute('role') || '').trim().split(/\s+/)[0];
+          const hasInteractiveRole = interactiveRoles.has(role);
+          if (!hasInteractiveRole && el.getAttribute('role')) continue;
+          if (!hasInteractiveRole && getComputedStyle(el).cursor !== 'pointer') continue;
+          if (el.closest(focusableSelector)) continue;
 
           // Report the outermost element of a clickable cluster, so an icon nested
           // in a styled wrapper yields one finding rather than one per layer.
@@ -277,8 +320,9 @@ export async function scanUrl(args: ScanUrlArgs) {
             category: 'accessibility',
             message: 'Element appears clickable but cannot be focused or activated from a keyboard.',
             selector: selectorFor(el),
-            suggestion:
-              'Use a <button>, or add role="button", tabindex="0" and Enter/Space handling, plus an accessible name.',
+            suggestion: hasInteractiveRole
+              ? 'Prefer a native interactive element, or add tabindex="0" and the keyboard handling required by the ARIA role.'
+              : 'Use a <button>, or add role="button", tabindex="0" and Enter/Space handling, plus an accessible name.',
           });
         }
 
@@ -506,7 +550,8 @@ async function checkLinks(
   hrefs: string[],
   maxLinks: number,
   allowPrivateNetwork: boolean,
-  privateNetworkOrigin: string
+  privateNetworkOrigin: string,
+  authenticatedSameOriginStatus?: (url: string) => Promise<number | undefined>
 ): Promise<Finding[]> {
   const findings: Finding[] = [];
   const unique = Array.from(new Set(hrefs))
@@ -514,30 +559,37 @@ async function checkLinks(
     .slice(0, Math.max(0, maxLinks));
 
   await withConcurrency(unique, 5, async (href) => {
-      try {
-        const url = new URL(href, baseUrl);
+    try {
+      const url = new URL(href, baseUrl);
+      let status: number | undefined;
+      if (url.origin === baseUrl.origin && authenticatedSameOriginStatus) {
+        status = await authenticatedSameOriginStatus(url.toString());
+      }
+      if (status === undefined) {
         const policy = { allowPrivateNetwork, privateNetworkOrigin };
         const res = await safeFetch(url, { method: 'HEAD' }, policy).catch(() =>
           safeFetch(url, { method: 'GET' }, policy)
         );
-        if (res.status >= 400) {
-          findings.push({
-            severity: res.status >= 500 ? 'high' : 'medium',
-            category: 'links',
-            message: `Link returned HTTP ${res.status}.`,
-            url: safeUrlForDisplay(url),
-            suggestion: 'Update, redirect, or remove the broken link.',
-          });
-        }
-      } catch (err) {
+        status = res.status;
+      }
+      if (status >= 400) {
         findings.push({
-          severity: 'medium',
+          severity: status >= 500 ? 'high' : 'medium',
           category: 'links',
-          message: `Link check failed: ${err instanceof Error ? err.message : 'network request failed'}`,
-          url: safeUrlForDisplay(href),
+          message: `Link returned HTTP ${status}.`,
+          url: safeUrlForDisplay(url),
+          suggestion: 'Update, redirect, or remove the broken link.',
         });
       }
-    });
+    } catch (err) {
+      findings.push({
+        severity: 'medium',
+        category: 'links',
+        message: `Link check failed: ${err instanceof Error ? err.message : 'network request failed'}`,
+        url: safeUrlForDisplay(href),
+      });
+    }
+  });
 
   return findings;
 }
