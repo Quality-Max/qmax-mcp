@@ -49,3 +49,37 @@ jobs:
       # Same reason: the accessibility rules run in page context, so they can only
       # be held still by driving real DOM.
       - run: npm run test:browser
+
+  # The single required status check for this workflow.
+  #
+  # Branch protection names a check by its *display name*, so requiring the real
+  # jobs directly makes every one of those names load-bearing: renaming a job, or
+  # changing a matrix entry, leaves protection waiting on a status that can no
+  # longer be reported. The PR then sits on "Expected — Waiting for status to be
+  # reported" while the renamed job goes green next to it, which reads as a slow
+  # runner rather than a misconfiguration.
+  #
+  # Requiring this job instead means only one name has to stay fixed, and it is
+  # named for that purpose. The jobs above are free to be renamed, split, or
+  # extended as long as they stay in `needs`.
+  #
+  # `if: always()` is required so the gate still reports when a dependency fails;
+  # without it the job is skipped and protection waits forever, which is the very
+  # failure this exists to prevent.
+  gate:
+    name: All checks
+    if: always()
+    needs: [check, demo]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every dependency to have succeeded
+        run: |
+          echo "check: ${{ needs.check.result }}"
+          echo "demo:  ${{ needs.demo.result }}"
+          # Explicit per-job comparison rather than a search over toJSON(needs):
+          # 'success' is the only acceptable result, so cancelled and skipped fail
+          # too. A new entry in `needs` must be added here as well, and forgetting
+          # to is a visible omission rather than a silent pass.
+          [ "${{ needs.check.result }}" = "success" ] || { echo "::error::check did not succeed"; exit 1; }
+          [ "${{ needs.demo.result }}" = "success" ] || { echo "::error::demo did not succeed"; exit 1; }
+          echo "All required jobs succeeded."
