@@ -28,8 +28,11 @@ jobs:
       - run: npm run check
       - run: npm run eval:agent-discovery
 
+  # Job id and display name are load-bearing: "Demo flow" is a required status
+  # check in branch protection, so renaming either silently blocks every PR on a
+  # check that can no longer report. Add steps here rather than renaming.
   demo:
-    name: Browser checks
+    name: Demo flow
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
