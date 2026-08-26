@@ -28,6 +28,9 @@ jobs:
       - run: npm run check
       - run: npm run eval:agent-discovery
 
+  # Job id and display name are load-bearing: "Demo flow" is a required status
+  # check in branch protection, so renaming either silently blocks every PR on a
+  # check that can no longer report. Add steps here rather than renaming.
   demo:
     name: Demo flow
     runs-on: ubuntu-latest
@@ -43,3 +46,6 @@ jobs:
       # The demo executes a real Playwright test, so this job needs the browser that `check` does not.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:demo
+      # Same reason: the accessibility rules run in page context, so they can only
+      # be held still by driving real DOM.
+      - run: npm run test:browser

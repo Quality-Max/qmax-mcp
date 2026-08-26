@@ -313,6 +313,22 @@ export async function scanUrl(args: ScanUrlArgs) {
           if (!hasInteractiveRole && getComputedStyle(el).cursor !== 'pointer') continue;
           if (el.closest(focusableSelector)) continue;
 
+          // Clickable label text is not a trap. A <label> forwards its click to
+          // its own control, so the keyboard route is to tab to that control and
+          // the pointer cursor is correct, accessible markup. Consent checkboxes
+          // are the common shape: on a real registration form this rule was
+          // reporting both consent labels as unreachable when the checkboxes were
+          // perfectly operable, which is exactly the markup a reviewer scrutinises
+          // hardest in a regulated product.
+          const label = el.closest('label');
+          if (label && ((label as HTMLLabelElement).control || label.querySelector(focusableSelector))) continue;
+
+          // A clickable wrapper around a real control is reachable through that
+          // control, so the wrapper is not what blocks a keyboard user. The
+          // ancestor direction is handled by the closest() check above; this is
+          // the descendant direction.
+          if (el.querySelector(focusableSelector)) continue;
+
           // Report the outermost element of a clickable cluster, so an icon nested
           // in a styled wrapper yields one finding rather than one per layer.
           if (Array.from(seenClickable).some((seen) => seen.contains(el))) continue;
