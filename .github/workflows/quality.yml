@@ -28,11 +28,15 @@ jobs:
       - run: npm run check
       - run: npm run eval:agent-discovery
 
-  # Job id and display name are load-bearing: "Demo flow" is a required status
-  # check in branch protection, so renaming either silently blocks every PR on a
-  # check that can no longer report. Add steps here rather than renaming.
+  # Runs the demo and the browser-backed accessibility fixtures: both need the
+  # Playwright browser that `check` deliberately does not install.
+  #
+  # Safe to rename now — branch protection requires the `gate` job below rather
+  # than this name. That was not true before #75: this job's display name was a
+  # required check, so renaming it left every PR waiting on a status that could
+  # no longer be reported.
   demo:
-    name: Demo flow
+    name: Browser checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
