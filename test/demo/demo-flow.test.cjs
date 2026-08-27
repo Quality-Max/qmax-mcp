@@ -59,7 +59,19 @@ test('the demo runs scan to executed evidence and returns a digest-bound receipt
 
   assert.ok(receipt.inspect.interactiveCount > 0);
   assert.equal(receipt.inspect.formCount, 1);
-  assert.ok(receipt.inspect.locatorCandidates.some((locator) => /getByRole\('button'/.test(locator)));
+  // The checkout button carries a data-testid, so it must be recommended by it
+  // rather than by its role and visible name: the test id survives a copy edit
+  // and a translation, the accessible name does not.
+  assert.ok(
+    receipt.inspect.locatorCandidates.some((locator) => /getByTestId\("checkout-submit"\)/.test(locator)),
+    `expected a test-id locator, got ${JSON.stringify(receipt.inspect.locatorCandidates)}`
+  );
+  // A control whose best available handle really is role plus accessible name
+  // is still recommended that way.
+  assert.ok(
+    receipt.inspect.locatorCandidates.some((locator) => /getByRole\('link'/.test(locator)),
+    `expected a role locator, got ${JSON.stringify(receipt.inspect.locatorCandidates)}`
+  );
 
   assert.match(receipt.repro.generatedPath, /^\.qmax-mcp\/repros\/.+\.spec\.ts$/);
 

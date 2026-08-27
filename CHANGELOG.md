@@ -33,6 +33,25 @@ entry says what changes for a connected agent.
   locally started application. Without it the loopback target the CI gate is
   most often pointed at was refused, which made `--fail-on-new` unusable for the
   case it exists for ([#80]).
+- `inspect_page` reports a `stability` verdict per control — `stable`,
+  `acceptable`, `fragile`, or `none` — and ranks `recommendedLocator` by how
+  durable its source is: test id, then id, then a label-derived role name, then
+  a text-derived one, then a placeholder. A placeholder-derived recommendation
+  carries a fragility caveat, and a control with no handle at all says so and
+  offers the least brittle scoped fallback alongside the durable fix. A
+  page-level `testability` score reports how many controls have a stable handle,
+  so a hard-to-test page is visible before the first spec is written ([#81]).
+
+### Fixed
+
+- `inspect_page` no longer reports a `data-test` or `data-qa` value as a
+  `[data-testid=...]` selector, or recommends `getByTestId` for one. Both
+  matched nothing, because `getByTestId` reads `data-testid` unless the project
+  configures otherwise ([#81]).
+- `inspect_page` no longer builds a `getByRole` recommendation from a `name`
+  attribute. The name attribute is not part of the accessible name, so that
+  locator silently matched nothing; the control is addressed by attribute
+  instead ([#81]).
 
 ### Documentation
 
@@ -290,4 +309,5 @@ account, API key, or hosted service required.
 [#78]: https://github.com/Quality-Max/qmax-mcp/issues/78
 [#79]: https://github.com/Quality-Max/qmax-mcp/issues/79
 [#80]: https://github.com/Quality-Max/qmax-mcp/issues/80
+[#81]: https://github.com/Quality-Max/qmax-mcp/issues/81
 [#82]: https://github.com/Quality-Max/qmax-mcp/issues/82

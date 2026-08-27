@@ -73,9 +73,9 @@ Title: **Northwind Coffee — checkout** · 3 headings · 1 form · 5 interactiv
 
 Suggested locators, preferring role and accessible name:
 
-- `page.getByRole('textbox', { name: "you@example.com" })`
+- `page.getByPlaceholder("you@example.com")`
 - `page.getByRole('link', { name: "Pricing" })`
-- `page.getByRole('button', { name: "Complete checkout" })`
+- `page.getByTestId("checkout-submit")`
 
 ---
 

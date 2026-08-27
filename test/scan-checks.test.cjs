@@ -10,7 +10,7 @@ const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/to
 const { describeTelemetryFailure, identifyTelemetryRequest, isPlaceholderCredential } = require('../dist/tools/checks/telemetry.js');
 const { renderReport } = require('../dist/report.js');
 const { assertSelfContainedTest } = require('../dist/tools/run-playwright-test.js');
-const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
+const { emptySnapshotWarnings, summarizeTestability } = require('../dist/tools/inspect-page.js');
 const { SUPPORTED_CHECKS, checkSecurityHeaders, isBenignNavigationAbort, resolveChecks } = require('../dist/tools/scan-url.js');
 const { dedupeFindings, diffFindings, findingFingerprint, loadBaselineFindings, scoreFromFindings, withFingerprints } = require('../dist/tools/common.js');
 const { describeApprovalFailure } = require('../dist/server.js');
@@ -716,6 +716,29 @@ test('the report leads with the baseline verdict', () => {
   // Without a baseline the report is unchanged: no empty section appears.
   const plain = renderReport({ url: 'https://example.com/', score: 100, checks: ['seo'], findingCount: 0, findings: [] });
   assert.equal(plain.includes('Since baseline'), false);
+});
+
+test('page testability counts only handles that survive a copy edit', () => {
+  const summary = summarizeTestability([
+    { stability: 'stable' },
+    { stability: 'stable' },
+    { stability: 'acceptable' },
+    { stability: 'fragile' },
+    { stability: 'none' },
+  ]);
+  // acceptable and fragile deliberately do not count: a text-derived name moves
+  // with the copy, and a placeholder-derived one moves with a translation.
+  assert.equal(summary.score, 40);
+  assert.equal(summary.stable, 2);
+  assert.match(summary.note, /1 of 5 controls have no stable handle/);
+
+  // A page whose every control has a handle says nothing extra.
+  assert.equal(summarizeTestability([{ stability: 'stable' }]).note, undefined);
+  assert.equal(summarizeTestability([{ stability: 'stable' }]).score, 100);
+
+  // A page with no interactive controls is not a 0% testable page.
+  assert.equal(summarizeTestability([]).score, 100);
+  assert.equal(summarizeTestability([]).note, undefined);
 });
 
 test('approval failures name the mode, the outcome, and the way out', () => {
