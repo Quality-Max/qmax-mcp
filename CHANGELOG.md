@@ -10,6 +10,14 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.7.0 — 2026-08-27
+
+Two scan-scoring corrections. A `scan_url` score is comparable to a 0.6.0 score
+only for a page that had neither repeated findings nor router-aborted requests;
+where either was present the new score is higher for the same page, because the
+old one was counting the same defect more than once or charging for framework
+behaviour the page cannot change.
+
 ### Changed
 
 - `scan_url` collapses findings that agree on severity, category, message, URL,
@@ -19,6 +27,14 @@ entry says what changes for a connected agent.
   prefetch/RSC fingerprint as `info` rather than `medium`: routers abort
   superseded prefetch and RSC requests by design, and each abort used to cost a
   medium penalty, capping a clean Next.js App Router page at 80 ([#79]).
+
+### Fixed
+
+- The accessibility keyboard-reachability rule no longer reports clickable
+  label text, or a clickable wrapper around a real control, as unreachable from
+  a keyboard. Both are operable, and consent checkboxes are the common shape, so
+  the false positive landed on exactly the markup a reviewer scrutinises hardest
+  ([#73]).
 
 ## 0.6.0 — 2026-08-25
 
@@ -236,5 +252,6 @@ account, API key, or hosted service required.
 [#67]: https://github.com/Quality-Max/qmax-mcp/pull/67
 [#68]: https://github.com/Quality-Max/qmax-mcp/pull/68
 [#69]: https://github.com/Quality-Max/qmax-mcp/pull/69
+[#73]: https://github.com/Quality-Max/qmax-mcp/pull/73
 [#77]: https://github.com/Quality-Max/qmax-mcp/issues/77
 [#79]: https://github.com/Quality-Max/qmax-mcp/issues/79
