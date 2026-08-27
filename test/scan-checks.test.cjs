@@ -12,7 +12,7 @@ const { renderReport } = require('../dist/report.js');
 const { assertSelfContainedTest } = require('../dist/tools/run-playwright-test.js');
 const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
 const { SUPPORTED_CHECKS, checkSecurityHeaders, isBenignNavigationAbort, resolveChecks } = require('../dist/tools/scan-url.js');
-const { dedupeFindings, scoreFromFindings } = require('../dist/tools/common.js');
+const { dedupeFindings, diffFindings, findingFingerprint, loadBaselineFindings, scoreFromFindings, withFingerprints } = require('../dist/tools/common.js');
 const { describeApprovalFailure } = require('../dist/server.js');
 
 const messages = (findings) => findings.map((finding) => finding.message);
@@ -619,6 +619,103 @@ test('a stubbed SDK is named, with the fix that actually disables it', () => {
   const realFinding = describeTelemetryFailure(real, 'https://o1.ingest.sentry.io/api/42/envelope/', 'net::ERR_TIMED_OUT');
   assert.match(realFinding.message, /^Sentry telemetry requests fail/);
   assert.match(realFinding.suggestion, /Confirm the Sentry endpoint is reachable/);
+});
+
+test('a fingerprint identifies the problem, not the run it was seen in', () => {
+  const base = { severity: 'high', category: 'console', message: 'error: boom', url: 'https://example.com/a' };
+
+  // Same problem, reported differently: severity reclassified, seen more often,
+  // whitespace and case reflowed. All must hash the same, or a diff would
+  // report a change nobody made.
+  const id = findingFingerprint(base);
+  assert.equal(findingFingerprint({ ...base, severity: 'info' }), id);
+  assert.equal(findingFingerprint({ ...base, occurrences: 4 }), id);
+  assert.equal(findingFingerprint({ ...base, message: '  ERROR:   boom  ' }), id);
+
+  // Genuinely different problems must not collide.
+  assert.notEqual(findingFingerprint({ ...base, url: 'https://example.com/b' }), id);
+  assert.notEqual(findingFingerprint({ ...base, category: 'network' }), id);
+  assert.notEqual(findingFingerprint({ ...base, message: 'error: other' }), id);
+
+  // Deterministic across calls and short enough to read in a log.
+  assert.equal(findingFingerprint(base), id);
+  assert.match(id, /^[0-9a-f]{12}$/);
+});
+
+test('a baseline diff separates new, fixed, and unchanged', () => {
+  const stale = { severity: 'high', category: 'console', message: 'error: gone', url: 'https://example.com/a' };
+  const kept = { severity: 'medium', category: 'network', message: 'Request failed: net::ERR_ABORTED', url: 'https://example.com/b' };
+  const fresh = { severity: 'high', category: 'console', message: 'error: brand new', url: 'https://example.com/c' };
+
+  const delta = diffFindings([kept, fresh], [stale, kept]);
+  assert.deepEqual(delta.new.map((f) => f.message), ['error: brand new']);
+  assert.deepEqual(delta.fixed.map((f) => f.message), ['error: gone']);
+  assert.deepEqual(delta.unchanged.map((f) => f.message), ['Request failed: net::ERR_ABORTED']);
+  assert.equal(delta.verdict, '1 new finding since baseline, 1 finding fixed.');
+
+  // The verdict is the line a CI log shows, so both quiet cases read correctly.
+  assert.equal(diffFindings([kept], [kept]).verdict, 'No new findings since baseline.');
+  assert.equal(diffFindings([], [kept]).verdict, 'No new findings since baseline; 1 finding fixed.');
+  assert.equal(diffFindings([fresh, kept], []).verdict, '2 new findings since baseline.');
+
+  // An unchanged finding keeps a severity reclassification without being
+  // reported as fixed-and-new: the fingerprint ignores severity on purpose.
+  const reclassified = diffFindings([{ ...kept, severity: 'info' }], [kept]);
+  assert.equal(reclassified.new.length, 0);
+  assert.equal(reclassified.fixed.length, 0);
+  assert.equal(reclassified.unchanged.length, 1);
+});
+
+test('withFingerprints keeps an id a finding already carries', () => {
+  const [minted] = withFingerprints([{ severity: 'low', category: 'seo', message: 'x' }]);
+  assert.match(minted.id, /^[0-9a-f]{12}$/);
+  const [preserved] = withFingerprints([{ severity: 'low', category: 'seo', message: 'x', id: 'supplied' }]);
+  assert.equal(preserved.id, 'supplied');
+});
+
+test('a baseline may be handed over inline, and is validated either way', async () => {
+  // The agent loop holds the previous result in memory; a pipeline persists it.
+  const findings = [{ severity: 'low', category: 'seo', message: 'Page title is missing or very short.' }];
+  assert.deepEqual(await loadBaselineFindings({ findings }), findings);
+
+  // Anything that is not a scan result is rejected by name, not by TypeError.
+  await assert.rejects(() => loadBaselineFindings({}), /including its findings array/);
+  await assert.rejects(() => loadBaselineFindings({ findings: 'nope' }), /including its findings array/);
+
+  // A baseline path gets the same workspace confinement as storageStatePath.
+  await assert.rejects(() => loadBaselineFindings('/etc/passwd'), /baseline must be relative to the active workspace/);
+  await assert.rejects(() => loadBaselineFindings('../../etc/passwd'), /baseline (escapes the active workspace|must name an existing workspace file)/);
+  await assert.rejects(() => loadBaselineFindings('no-such-baseline.json'), /baseline must name an existing workspace file/);
+});
+
+test('the report leads with the baseline verdict', () => {
+  const report = renderReport({
+    url: 'https://example.com/',
+    score: 80,
+    checks: ['console'],
+    findingCount: 1,
+    findings: [{ severity: 'medium', category: 'network', message: 'Request failed: net::ERR_ABORTED' }],
+    delta: {
+      verdict: '1 new finding since baseline, 2 findings fixed.',
+      new: [{ severity: 'high', category: 'console', message: 'error: regression', url: 'https://example.com/a' }],
+      fixed: [
+        { severity: 'high', category: 'console', message: 'error: gone' },
+        { severity: 'low', category: 'seo', message: 'Meta description is missing or very short.' },
+      ],
+      unchanged: [],
+    },
+  });
+
+  // The verdict is the question the reader came with, so it sits above the
+  // category tables rather than below the findings.
+  assert.match(report, /\*\*Since baseline:\*\* 1 new finding since baseline, 2 findings fixed\./);
+  assert.match(report, /- New: error: regression \(`https:\/\/example\.com\/a`\)/);
+  assert.match(report, /- Fixed: error: gone/);
+  assert.ok(report.indexOf('Since baseline') < report.indexOf('| Category |'));
+
+  // Without a baseline the report is unchanged: no empty section appears.
+  const plain = renderReport({ url: 'https://example.com/', score: 100, checks: ['seo'], findingCount: 0, findings: [] });
+  assert.equal(plain.includes('Since baseline'), false);
 });
 
 test('approval failures name the mode, the outcome, and the way out', () => {

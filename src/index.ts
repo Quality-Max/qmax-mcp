@@ -52,10 +52,26 @@ program
   .option('--screenshot', 'Capture a screenshot', false)
   .option('--format <format>', 'Output format: markdown or json', 'markdown')
   .option('--out <file>', 'Write the report to a file instead of stdout')
+  .option(
+    '--allow-private-network',
+    'Permit a loopback target such as a locally started app. Deliberate local development testing only',
+    false
+  )
+  .option('--baseline <file>', 'Compare against a previous JSON scan result and report new/fixed findings')
+  .option('--fail-on-new', 'Exit non-zero when the scan finds anything absent from the baseline', false)
   .action(
     async (
       url: string,
-      options: { checks?: string; maxLinks: string; screenshot: boolean; format: string; out?: string }
+      options: {
+        checks?: string;
+        maxLinks: string;
+        screenshot: boolean;
+        format: string;
+        out?: string;
+        allowPrivateNetwork?: boolean;
+        baseline?: string;
+        failOnNew?: boolean;
+      }
     ) => {
       const checks = options.checks
         ?.split(',')
@@ -66,6 +82,8 @@ program
         checks,
         maxLinks: Number.parseInt(options.maxLinks, 10),
         screenshot: options.screenshot,
+        allowPrivateNetwork: options.allowPrivateNetwork,
+        baseline: options.baseline,
       });
       const output =
         options.format === 'json' ? `${JSON.stringify(result, null, 2)}\n` : renderReport(result);
@@ -74,6 +92,21 @@ program
         process.stderr.write(`Report written to ${options.out}\n`);
       } else {
         process.stdout.write(output.endsWith('\n') ? output : `${output}\n`);
+      }
+
+      // A pipeline gating on "findingCount > 0" cannot pass once a page has any
+      // known-benign finding. Gating on "nothing new since the last green run"
+      // is the check that stays useful, so it gets an exit code.
+      if (options.failOnNew) {
+        if (!options.baseline) {
+          process.stderr.write('--fail-on-new needs --baseline to compare against.\n');
+          process.exit(2);
+        }
+        const fresh = result.delta?.new.length ?? 0;
+        if (fresh > 0) {
+          process.stderr.write(`${fresh} new finding${fresh === 1 ? '' : 's'} since baseline.\n`);
+          process.exit(1);
+        }
       }
     }
   );

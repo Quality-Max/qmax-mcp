@@ -146,7 +146,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
     {
       title: 'Scan URL',
       description:
-        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. storageStatePath may name a workspace-relative Playwright storage-state file so the checks can run on an authenticated page; its credentials are loaded into the throwaway browser context and never returned. Because returned findings may reflect private content, authenticated scans also require acknowledgePrivateContent:true as explicit caller consent. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
+        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. storageStatePath may name a workspace-relative Playwright storage-state file so the checks can run on an authenticated page; its credentials are loaded into the throwaway browser context and never returned. Because returned findings may reflect private content, authenticated scans also require acknowledgePrivateContent:true as explicit caller consent. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. baseline takes a previous scan result, or a workspace-relative path to one, and adds a delta reporting which findings are new, fixed, and unchanged — use it to answer whether a change introduced anything rather than comparing two results by eye. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -158,6 +158,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
         checks: z.array(z.enum(SUPPORTED_CHECKS)).optional(),
         storageStatePath: z.string().min(1).optional(),
         acknowledgePrivateContent: z.literal(true).optional(),
+        baseline: z.union([z.string().min(1), z.object({}).passthrough()]).optional(),
         maxLinks: z.number().int().min(0).max(250).optional(),
         screenshot: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),

@@ -3,4 +3,5 @@ dist/
 .env
 *.js.map
 /.qmax-mcp/
+/.baseline-test-*/
 /.storage-state-test-*/

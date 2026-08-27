@@ -10,15 +10,6 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
-### Documentation
-
-- The README shows how to produce the Playwright storage-state file that
-  `scan_url` and `inspect_page` accept: a one-line `playwright codegen
-  --save-storage` for a login you sign into yourself, and a short script for one
-  a suite already automates. The capability shipped in 0.5.0, but minting the
-  file meant inventing the procedure, so authenticated pages went unscanned
-  ([#82]).
-
 ### Added
 
 - `scan_url` recognises the request shapes common telemetry SDKs use for their
@@ -28,6 +19,29 @@ entry says what changes for a connected agent.
   suggestion is the fix that actually works: an empty DSN or token, which these
   SDKs treat as disabled, rather than a fake-but-present value that makes them
   initialize and retry on every page load ([#78]).
+- `scan_url` accepts a `baseline` — a previous scan result, or a
+  workspace-relative path to one — and returns a `delta` of `new`, `fixed`, and
+  `unchanged` findings with a one-line verdict. Every finding now carries a
+  stable `id` derived from its category, message, and URL or selector, so the
+  same problem hashes the same across runs; severity and occurrence count are
+  excluded from that identity, because a reclassified or more-frequently-seen
+  finding is still the same finding. The `qmax-mcp scan` CLI gains `--baseline`
+  and `--fail-on-new`, so a pipeline can gate on "nothing new since the last
+  green run" rather than on `findingCount > 0`, which stops working as soon as a
+  page has one known-benign finding ([#80]).
+- `qmax-mcp scan` accepts `--allow-private-network`, so the CLI can scan a
+  locally started application. Without it the loopback target the CI gate is
+  most often pointed at was refused, which made `--fail-on-new` unusable for the
+  case it exists for ([#80]).
+
+### Documentation
+
+- The README shows how to produce the Playwright storage-state file that
+  `scan_url` and `inspect_page` accept: a one-line `playwright codegen
+  --save-storage` for a login you sign into yourself, and a short script for one
+  a suite already automates. The capability shipped in 0.5.0, but minting the
+  file meant inventing the procedure, so authenticated pages went unscanned
+  ([#82]).
 
 ## 0.7.0 — 2026-08-27
 
@@ -275,4 +289,5 @@ account, API key, or hosted service required.
 [#77]: https://github.com/Quality-Max/qmax-mcp/issues/77
 [#78]: https://github.com/Quality-Max/qmax-mcp/issues/78
 [#79]: https://github.com/Quality-Max/qmax-mcp/issues/79
+[#80]: https://github.com/Quality-Max/qmax-mcp/issues/80
 [#82]: https://github.com/Quality-Max/qmax-mcp/issues/82
