@@ -1,5 +1,9 @@
 import {
   dedupeFindings,
+  diffFindings,
+  loadBaselineFindings,
+  withFingerprints,
+  type FindingDelta,
   scoreFromFindings,
   validateHttpUrl,
   withPage,
@@ -129,6 +133,13 @@ export type ScanUrlArgs = {
   storageStatePath?: string;
   /** Explicit consent to return findings derived from authenticated private content. */
   acknowledgePrivateContent?: boolean;
+  /**
+   * A previous scan result to compare against — either the result itself, or a
+   * workspace-relative path to one. The response then reports what is new,
+   * fixed, and unchanged, which is the question the scan-change-rescan workflow
+   * actually asks.
+   */
+  baseline?: string | { findings?: unknown };
 };
 
 export type ScanMetrics = {
@@ -545,14 +556,26 @@ export async function scanUrl(args: ScanUrlArgs) {
     }
   });
 
-  // Deduplicate before scoring so a problem observed N times is penalised once.
-  const deduped = dedupeFindings(findings);
+  // Deduplicate before scoring so a problem observed N times is penalised once,
+  // then fingerprint so the survivors can be compared against another run.
+  const deduped = withFingerprints(dedupeFindings(findings));
+  const redacted = redactSensitiveData(deduped) as Finding[];
+
+  // Diff the redacted findings, not the raw ones: the baseline was written from
+  // a previous response and so is already redacted. Comparing across the
+  // boundary would report every redacted finding as both fixed and new.
+  let delta: FindingDelta | undefined;
+  if (args.baseline !== undefined) {
+    delta = diffFindings(redacted, await loadBaselineFindings(args.baseline));
+  }
+
   return {
     url: displayUrl,
     score: scoreFromFindings(deduped),
     checks: Array.from(checks),
     findingCount: deduped.length,
-    findings: redactSensitiveData(deduped) as Finding[],
+    findings: redacted,
+    delta,
     metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
     screenshotPath,
   };

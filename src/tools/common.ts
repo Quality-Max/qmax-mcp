@@ -1,4 +1,5 @@
-import { mkdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from 'playwright';
@@ -23,6 +24,8 @@ export type Finding = {
   repro?: string;
   /** How many times this exact finding was observed. Absent means once. */
   occurrences?: number;
+  /** Stable identity for this problem across runs. See `findingFingerprint`. */
+  id?: string;
 };
 
 export const SEVERITY_RANK: Record<Severity, number> = {
@@ -113,10 +116,18 @@ export async function withPage<T>(
 
 const MAX_STORAGE_STATE_BYTES = 10 * 1024 * 1024;
 
-/** Resolve a caller-selected Playwright auth state without allowing reads outside the workspace. */
-export async function resolveWorkspaceStorageStatePath(requestedPath: string): Promise<string> {
+/**
+ * Resolve a caller-selected workspace file without allowing reads outside the
+ * workspace.
+ *
+ * Every caller-supplied path the server reads goes through here: the auth state,
+ * and the scan baseline. A second path input reaching the filesystem on its own
+ * terms is how traversal and symlink escapes get reintroduced one feature at a
+ * time, so the guard takes the label rather than the check being copied.
+ */
+async function resolveWorkspaceFile(requestedPath: string, label: string, maxBytes: number): Promise<string> {
   if (path.isAbsolute(requestedPath)) {
-    throw new Error('storageStatePath must be relative to the active workspace.');
+    throw new Error(`${label} must be relative to the active workspace.`);
   }
 
   const workspaceRoot = await realpath(process.cwd());
@@ -124,22 +135,54 @@ export async function resolveWorkspaceStorageStatePath(requestedPath: string): P
   try {
     resolved = await realpath(path.resolve(workspaceRoot, requestedPath));
   } catch {
-    throw new Error('storageStatePath must name an existing workspace file.');
+    throw new Error(`${label} must name an existing workspace file.`);
   }
-  assertWithin(workspaceRoot, resolved, 'storageStatePath escapes the active workspace.');
+  assertWithin(workspaceRoot, resolved, `${label} escapes the active workspace.`);
   let metadata;
   try {
     metadata = await stat(resolved);
   } catch {
-    throw new Error('storageStatePath must name an existing workspace file.');
+    throw new Error(`${label} must name an existing workspace file.`);
   }
   if (!metadata.isFile()) {
-    throw new Error('storageStatePath must name a regular file.');
+    throw new Error(`${label} must name a regular file.`);
   }
-  if (metadata.size > MAX_STORAGE_STATE_BYTES) {
-    throw new Error('storageStatePath exceeds the 10 MB safety limit.');
+  if (metadata.size > maxBytes) {
+    throw new Error(`${label} exceeds the ${Math.round(maxBytes / (1024 * 1024))} MB safety limit.`);
   }
   return resolved;
+}
+
+/** Resolve a caller-selected Playwright auth state without allowing reads outside the workspace. */
+export async function resolveWorkspaceStorageStatePath(requestedPath: string): Promise<string> {
+  return await resolveWorkspaceFile(requestedPath, 'storageStatePath', MAX_STORAGE_STATE_BYTES);
+}
+
+const MAX_BASELINE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Load a previous scan result to compare against.
+ *
+ * A baseline is just an earlier result, so it can be handed over inline by a
+ * caller that still holds one or named as a workspace file by a pipeline that
+ * persisted one. The file path is confined exactly as the auth state is.
+ */
+export async function loadBaselineFindings(baseline: string | { findings?: unknown }): Promise<Finding[]> {
+  let parsed: unknown = baseline;
+  if (typeof baseline === 'string') {
+    const resolved = await resolveWorkspaceFile(baseline, 'baseline', MAX_BASELINE_BYTES);
+    try {
+      parsed = JSON.parse(await readFile(resolved, 'utf8'));
+    } catch {
+      throw new Error('baseline must contain the JSON result of a previous scan.');
+    }
+  }
+
+  const findings = (parsed as { findings?: unknown } | null)?.findings;
+  if (!Array.isArray(findings)) {
+    throw new Error('baseline must contain the JSON result of a previous scan, including its findings array.');
+  }
+  return findings as Finding[];
 }
 
 export async function enforceBrowserNetworkPolicy(
@@ -196,6 +239,73 @@ export function dedupeFindings(findings: Finding[]): Finding[] {
     }
   }
   return Array.from(byKey.values());
+}
+
+/**
+ * A stable identity for a problem, so the same problem hashes the same across
+ * runs and two scans can be compared by machine.
+ *
+ * Severity is deliberately excluded. A finding whose severity is reclassified —
+ * as prefetch aborts were, from medium to info — is still the same problem, and
+ * a diff that reported it as one finding fixed and another appearing would be
+ * describing a change nobody made. `occurrences` is excluded for the same
+ * reason: seeing a problem four times instead of three is not a different
+ * problem.
+ *
+ * The message is compared verbatim apart from whitespace and case, which means
+ * a finding that embeds a count ("6 render-blocking resources") gets a new
+ * identity when that count moves. That is the conservative direction: it shows
+ * up as one fixed and one new rather than silently reporting "unchanged" for a
+ * finding whose text no longer matches.
+ */
+export function findingFingerprint(finding: Pick<Finding, 'category' | 'message' | 'url' | 'selector'>): string {
+  const normalize = (value: string | undefined) => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const material = JSON.stringify([
+    normalize(finding.category),
+    normalize(finding.message),
+    normalize(finding.url),
+    normalize(finding.selector),
+  ]);
+  return createHash('sha256').update(material).digest('hex').slice(0, 12);
+}
+
+/** Attach a fingerprint to every finding that does not already carry one. */
+export function withFingerprints(findings: Finding[]): Finding[] {
+  return findings.map((finding) => ({ ...finding, id: finding.id ?? findingFingerprint(finding) }));
+}
+
+export type FindingDelta = {
+  fixed: Finding[];
+  new: Finding[];
+  unchanged: Finding[];
+  /** One line a human or a CI log can read without opening the arrays. */
+  verdict: string;
+};
+
+/**
+ * Compare a scan against a baseline scan of the same URL.
+ *
+ * The workflow `scan_url` is documented for — scan, change something, scan
+ * again, decide — is a comparison, and doing it by eye across two JSON blobs
+ * makes "did my change introduce anything new?" depend on the reader's
+ * diligence. It also blocks CI: a pipeline can gate on "new findings since
+ * baseline" but not on "findingCount > 0" once known-benign findings exist.
+ */
+export function diffFindings(current: Finding[], baseline: Finding[]): FindingDelta {
+  const currentById = new Map(withFingerprints(current).map((finding) => [finding.id as string, finding]));
+  const baselineById = new Map(withFingerprints(baseline).map((finding) => [finding.id as string, finding]));
+
+  const fresh = [...currentById].filter(([id]) => !baselineById.has(id)).map(([, finding]) => finding);
+  const unchanged = [...currentById].filter(([id]) => baselineById.has(id)).map(([, finding]) => finding);
+  const fixed = [...baselineById].filter(([id]) => !currentById.has(id)).map(([, finding]) => finding);
+
+  const count = (items: Finding[], noun: string) => `${items.length} ${noun}${items.length === 1 ? '' : 's'}`;
+  const verdict =
+    fresh.length === 0
+      ? `No new findings since baseline${fixed.length > 0 ? `; ${count(fixed, 'finding')} fixed` : ''}.`
+      : `${count(fresh, 'new finding')} since baseline${fixed.length > 0 ? `, ${count(fixed, 'finding')} fixed` : ''}.`;
+
+  return { fixed, new: fresh, unchanged, verdict };
 }
 
 export function scoreFromFindings(findings: Finding[]): number {

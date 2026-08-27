@@ -148,6 +148,39 @@ and use a dedicated state file containing only the credentials needed by the
 inspected application. Playwright storage state covers cookies, local storage,
 and optionally IndexedDB; it does not persist session storage.
 
+### Compare a scan against a previous one
+
+`scan_url` is documented for use after a change, which makes it a comparison:
+scan, change something, scan again, decide. Pass `baseline` — a previous scan
+result, or a workspace-relative path to one — and the response carries a
+`delta` reporting which findings are `new`, `fixed`, and `unchanged`, plus a
+one-line verdict.
+
+```json
+{
+  "url": "https://example.com/",
+  "baseline": "artifacts/scan-main.json"
+}
+```
+
+Each finding carries a stable `id` derived from its category, message, and
+URL or selector, so the same problem hashes the same across runs. Severity and
+occurrence count are excluded from that identity on purpose: a finding that is
+reclassified, or seen four times instead of three, is still the same finding.
+
+In CI this is what makes a gate usable. Failing on `findingCount > 0` stops
+working the moment a page has one known-benign finding, whereas failing on
+"nothing new since the last green run" keeps working:
+
+```bash
+qmax-mcp scan https://example.com/ --format json --out scan.json
+qmax-mcp scan https://example.com/ --baseline artifacts/scan-main.json --fail-on-new
+```
+
+`--fail-on-new` exits 1 when the scan finds anything absent from the baseline,
+and 2 when it was passed without `--baseline`. Persist the last main-branch
+result as the baseline artifact.
+
 ## Add it to your coding agent
 
 Copy a ready-made, no-credential configuration and the accompanying instruction file for your client:

@@ -1,4 +1,4 @@
-import { type Finding, type Severity, SEVERITY_RANK, gradeFromScore } from './tools/common';
+import { type Finding, type FindingDelta, type Severity, SEVERITY_RANK, gradeFromScore } from './tools/common';
 import { formatBytes } from './tools/checks/signals';
 import type { ScanMetrics } from './tools/scan-url';
 
@@ -9,6 +9,7 @@ export type ScanResult = {
   findingCount: number;
   findings: Finding[];
   metrics?: ScanMetrics;
+  delta?: FindingDelta;
   screenshotPath?: string;
 };
 
@@ -149,6 +150,24 @@ export function renderReport(result: ScanResult, opts: { now?: Date } = {}): str
   lines.push('');
   lines.push(`\`${meter(result.score, 100, 24)}\` ${result.score} / 100`);
   lines.push('');
+
+  // The verdict goes above the tables: when a baseline was supplied, "did this
+  // change introduce anything?" is the question the reader came with.
+  if (result.delta) {
+    lines.push(`**Since baseline:** ${result.delta.verdict}`);
+    lines.push('');
+    const bullets = [
+      ['New', result.delta.new],
+      ['Fixed', result.delta.fixed],
+    ] as const;
+    for (const [label, items] of bullets) {
+      for (const item of items.slice(0, 10)) {
+        lines.push(`- ${label}: ${item.message}${item.url ? ` (\`${item.url}\`)` : ''}`);
+      }
+      if (items.length > 10) lines.push(`- ${label}: …and ${items.length - 10} more`);
+    }
+    if (result.delta.new.length > 0 || result.delta.fixed.length > 0) lines.push('');
+  }
 
   // Category summary table — one row per check that actually ran, with a bar scaled to the noisiest
   // category so the shape of the result is readable before any row is.
