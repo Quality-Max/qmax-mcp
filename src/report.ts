@@ -29,7 +29,7 @@ const GRADE_EMOJI: Record<string, string> = {
 };
 
 const CHECK_META: Array<{ check: string; label: string; categories: string[] }> = [
-  { check: 'console', label: 'Console errors', categories: ['console', 'network'] },
+  { check: 'console', label: 'Console errors', categories: ['console', 'network', 'telemetry'] },
   { check: 'links', label: 'Broken links', categories: ['links'] },
   { check: 'accessibility', label: 'Accessibility', categories: ['accessibility'] },
   { check: 'performance', label: 'Performance', categories: ['performance'] },

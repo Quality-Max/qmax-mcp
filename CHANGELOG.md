@@ -10,6 +10,16 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Added
+
+- `scan_url` recognises the request shapes common telemetry SDKs use for their
+  own transport — Sentry envelopes, PostHog config and capture, GA collect,
+  Datadog RUM, Amplitude, Mixpanel — and reports a failing one as a `telemetry`
+  finding naming the SDK. When the request carries a placeholder credential the
+  suggestion is the fix that actually works: an empty DSN or token, which these
+  SDKs treat as disabled, rather than a fake-but-present value that makes them
+  initialize and retry on every page load ([#78]).
+
 ## 0.7.0 — 2026-08-27
 
 Two scan-scoring corrections. A `scan_url` score is comparable to a 0.6.0 score
@@ -254,4 +264,5 @@ account, API key, or hosted service required.
 [#69]: https://github.com/Quality-Max/qmax-mcp/pull/69
 [#73]: https://github.com/Quality-Max/qmax-mcp/pull/73
 [#77]: https://github.com/Quality-Max/qmax-mcp/issues/77
+[#78]: https://github.com/Quality-Max/qmax-mcp/issues/78
 [#79]: https://github.com/Quality-Max/qmax-mcp/issues/79

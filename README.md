@@ -79,7 +79,7 @@ Then every finding follows with its severity, a copy-pasteable reproduction, and
 
 | Tool | Local capability | Boundary to review |
 | --- | --- | --- |
-| `scan_url` | Scan a URL for console, network, link, accessibility, SEO, security-header, cookie/tracker, mixed-content, page-weight, and Core Web Vitals findings, optionally using a Playwright storage-state file. | It makes outbound requests, may read an explicitly selected workspace file containing credentials, and can write a screenshot. |
+| `scan_url` | Scan a URL for console, network, telemetry-SDK, link, accessibility, SEO, security-header, cookie/tracker, mixed-content, page-weight, and Core Web Vitals findings, optionally using a Playwright storage-state file. | It makes outbound requests, may read an explicitly selected workspace file containing credentials, and can write a screenshot. |
 | `inspect_page` | Return page structure and role/name locator candidates, optionally using a Playwright storage-state file for authenticated pages. | It makes outbound requests and may read an explicitly selected workspace file containing credentials. |
 | `generate_playwright_repro` | Write a deterministic, workspace-contained Playwright repro. | It writes below `.qmax-mcp/repros`; overwrites are explicit. |
 | `run_playwright_test` | Execute one local Playwright test and return structured status. | It executes code and writes controlled artifacts; by default it requires an accepted, digest-bound MCP human-approval elicitation. |

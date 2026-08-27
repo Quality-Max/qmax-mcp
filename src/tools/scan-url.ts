@@ -8,6 +8,7 @@ import {
   type Viewport,
 } from './common';
 import { analyzeCookies, toCookieSignal } from './checks/cookies';
+import { describeTelemetryFailure, identifyTelemetryRequest } from './checks/telemetry';
 import { analyzeMixedContent, type MarkupResource } from './checks/mixed-content';
 import {
   mergeResourceSignals,
@@ -203,6 +204,20 @@ export async function scanUrl(args: ScanUrlArgs) {
 
     if (checks.has('console')) {
       for (const message of consoleMessages) {
+        // A failed subresource is reported to the console with the request's own
+        // URL as its location, and that URL is often the only place the cause is
+        // named. A PostHog remote-config 404 arrives here and nowhere else: it is
+        // a served response, so `requestfailed` never sees it.
+        const locationUrl = (message.location as { url?: string } | undefined)?.url;
+        const signature = locationUrl ? identifyTelemetryRequest(locationUrl) : null;
+        if (signature) {
+          const telemetryUrl = safeUrlForDisplay(locationUrl as string);
+          findings.push({
+            ...describeTelemetryFailure(signature, telemetryUrl, message.text),
+            repro: `1. Open ${displayUrl}\n2. Open DevTools → Network\n3. Observe the request to ${telemetryUrl}: ${message.text}`,
+          });
+          continue;
+        }
         findings.push({
           severity: message.type === 'error' ? 'high' : 'medium',
           category: 'console',
@@ -214,6 +229,20 @@ export async function scanUrl(args: ScanUrlArgs) {
       }
       for (const failed of requestFailures.slice(0, 20)) {
         const benign = isBenignNavigationAbort(failed);
+        // Name the SDK rather than the transport error. One SDK-level finding
+        // replaces N anonymous "Request failed" findings, and because the
+        // console surface produces the same message and URL for the same
+        // request, deduplication merges the pair into a single finding.
+        const signature = benign ? null : identifyTelemetryRequest(failed.url);
+        if (signature) {
+          const telemetryUrl = safeUrlForDisplay(failed.url);
+          const failure = failed.failure ?? 'unknown error';
+          findings.push({
+            ...describeTelemetryFailure(signature, telemetryUrl, failure),
+            repro: `1. Open ${displayUrl}\n2. Open DevTools → Network\n3. Observe the request to ${telemetryUrl}: ${failure}`,
+          });
+          continue;
+        }
         findings.push({
           severity: benign ? 'info' : 'medium',
           category: 'network',
