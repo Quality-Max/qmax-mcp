@@ -19,9 +19,6 @@ entry says what changes for a connected agent.
   filing. `qmax-mcp scan` gains `--format issue` and `--min-severity`. Blocks are
   delimited by HTML comments so a block pastes into a ticket without carrying the
   report's structure with it ([#83]).
-
-### Added
-
 - `scan_url` recognises the request shapes common telemetry SDKs use for their
   own transport — Sentry envelopes, PostHog config and capture, GA collect,
   Datadog RUM, Amplitude, Mixpanel — and reports a failing one as a `telemetry`
@@ -71,7 +68,6 @@ entry says what changes for a connected agent.
   a suite already automates. The capability shipped in 0.5.0, but minting the
   file meant inventing the procedure, so authenticated pages went unscanned
   ([#82]).
-
 ## 0.7.0 — 2026-08-27
 
 Two scan-scoring corrections. A `scan_url` score is comparable to a 0.6.0 score
