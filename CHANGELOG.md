@@ -10,6 +10,16 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Changed
+
+- `scan_url` collapses findings that agree on severity, category, message, URL,
+  and selector into one finding with an `occurrences` count, so one root cause
+  observed several times is reported and penalised once ([#77]).
+- `scan_url` reports `net::ERR_ABORTED` request failures carrying a
+  prefetch/RSC fingerprint as `info` rather than `medium`: routers abort
+  superseded prefetch and RSC requests by design, and each abort used to cost a
+  medium penalty, capping a clean Next.js App Router page at 80 ([#79]).
+
 ## 0.6.0 — 2026-08-25
 
 ### Added
@@ -226,3 +236,5 @@ account, API key, or hosted service required.
 [#67]: https://github.com/Quality-Max/qmax-mcp/pull/67
 [#68]: https://github.com/Quality-Max/qmax-mcp/pull/68
 [#69]: https://github.com/Quality-Max/qmax-mcp/pull/69
+[#77]: https://github.com/Quality-Max/qmax-mcp/issues/77
+[#79]: https://github.com/Quality-Max/qmax-mcp/issues/79
