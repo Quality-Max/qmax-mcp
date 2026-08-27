@@ -8,7 +8,7 @@ const { analyzeVitals } = require('../dist/tools/checks/vitals.js');
 const { formatBytes, mergeResourceSignals, transferBytes } = require('../dist/tools/checks/signals.js');
 const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/tools/checks/trackers.js');
 const { describeTelemetryFailure, identifyTelemetryRequest, isPlaceholderCredential } = require('../dist/tools/checks/telemetry.js');
-const { renderReport } = require('../dist/report.js');
+const { renderIssues, renderReport } = require('../dist/report.js');
 const { assertSelfContainedTest } = require('../dist/tools/run-playwright-test.js');
 const { emptySnapshotWarnings, summarizeTestability } = require('../dist/tools/inspect-page.js');
 const { SUPPORTED_CHECKS, checkSecurityHeaders, isBenignNavigationAbort, resolveChecks } = require('../dist/tools/scan-url.js');
@@ -739,6 +739,99 @@ test('page testability counts only handles that survive a copy edit', () => {
   // A page with no interactive controls is not a 0% testable page.
   assert.equal(summarizeTestability([]).score, 100);
   assert.equal(summarizeTestability([]).note, undefined);
+});
+
+test('each finding renders as a self-contained ticket', () => {
+  const result = {
+    url: 'https://example.com/reset-password',
+    score: 60,
+    checks: ['accessibility', 'console'],
+    findingCount: 2,
+    findings: [
+      {
+        severity: 'high',
+        category: 'accessibility',
+        message: 'Form control has no accessible label.',
+        selector: 'form > input:nth-of-type(1)',
+        suggestion: 'Associate the control with a visible label or aria-label.',
+        repro: '1. Open https://example.com/reset-password\n2. Inspect `form > input:nth-of-type(1)`',
+      },
+      {
+        severity: 'low',
+        category: 'seo',
+        message: 'Meta description is missing or very short.',
+        repro: "curl -s https://example.com/ | grep -i '<meta name=\"description\"'",
+        suggestion: 'Add a <meta name="description"> (50-160 chars).',
+        occurrences: 3,
+      },
+    ],
+  };
+
+  const issues = renderIssues(result, { now: new Date('2026-08-27T00:00:00Z') });
+
+  // Every section a tracker asks for, filled from fields the finding already had.
+  assert.match(issues, /## Summary\nForm control has no accessible label\. \(`form > input:nth-of-type\(1\)`\)/);
+  assert.match(issues, /## Steps to Reproduce\n1\. Open https:\/\/example\.com\/reset-password\n2\. Inspect/);
+  assert.match(issues, /## Expected Result\nAssociate the control with a visible label or aria-label\./);
+  assert.match(issues, /## Environment\nFound by an automated scan .* on 2026-08-27\. Severity high, category accessibility\./);
+
+  // A one-line repro is a command, not a step list, so it is presented as one.
+  assert.match(issues, /1\. Run `curl -s https:\/\/example\.com\/ \| grep/);
+
+  // Collapsed findings file as one ticket that states the frequency, rather
+  // than as three identical tickets.
+  assert.match(issues, /Observed 3 times on one page load\./);
+  assert.equal((issues.match(/## Summary/g) || []).length, 2);
+
+  // Blocks are delimited by comments, which render as nothing, so a block can be
+  // pasted into a description without carrying the report's structure along.
+  assert.match(issues, /<!-- issue 1 of 2 · high · accessibility -->/);
+  assert.match(issues, /<!-- issue 2 of 2 · low · seo -->/);
+
+  // Most severe first, so the reader files the ticket that matters first.
+  assert.ok(issues.indexOf('no accessible label') < issues.indexOf('Meta description'));
+});
+
+test('the issue export filters by severity and says so when empty', () => {
+  const result = {
+    url: 'https://example.com/',
+    score: 90,
+    checks: ['seo'],
+    findingCount: 2,
+    findings: [
+      { severity: 'high', category: 'console', message: 'error: boom' },
+      { severity: 'info', category: 'security_headers', message: 'HSTS does not apply.' },
+    ],
+  };
+
+  const high = renderIssues(result, { minSeverity: 'high', now: new Date('2026-08-27T00:00:00Z') });
+  assert.match(high, /error: boom/);
+  assert.equal(high.includes('HSTS'), false, 'info findings are below the floor');
+
+  // Nothing to file is a valid answer and must not render an empty template.
+  const none = renderIssues(result, { minSeverity: 'critical', now: new Date('2026-08-27T00:00:00Z') });
+  assert.equal(none.includes('## Summary'), false);
+  assert.match(none, /no findings at or above critical/);
+
+  // With no floor, everything is exported.
+  assert.equal((renderIssues(result).match(/## Summary/g) || []).length, 2);
+});
+
+test('an issue block stays honest when a finding is thin', () => {
+  // No selector, no repro, no suggestion: the renderer must not invent steps or
+  // assert an expected result it cannot support.
+  const issues = renderIssues({
+    url: 'https://example.com/',
+    score: 96,
+    checks: ['seo'],
+    findingCount: 1,
+    findings: [{ severity: 'low', category: 'seo', message: 'Page title is missing or very short.' }],
+  });
+
+  assert.match(issues, /## Steps to Reproduce\n1\. Open https:\/\/example\.com\//);
+  assert.match(issues, /## Expected Result\nThe scan reports no finding here\./);
+  // No locus is available, so none is fabricated.
+  assert.match(issues, /## Summary\nPage title is missing or very short\.\n/);
 });
 
 test('approval failures name the mode, the outcome, and the way out', () => {

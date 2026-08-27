@@ -134,6 +134,79 @@ function measurementLines(metrics: ScanMetrics | undefined): string[] {
   return lines;
 }
 
+/**
+ * Render each finding as a self-contained, tracker-agnostic issue block.
+ *
+ * Findings already carry roughly what a ticket needs — message, repro,
+ * suggestion, selector or URL, severity — but as report fields rather than
+ * ticket fields, so filing one means rewriting all of it as prose. In the
+ * session that motivated this, six findings became six hand-written tickets and
+ * each needed the same transformation. Teams that must do that by hand file the
+ * top one or two findings and drop the rest, which is where findings die.
+ *
+ * The blocks are separated by HTML comments rather than headings: a comment
+ * renders as nothing in every tracker, so a block can be pasted straight into a
+ * description without carrying the report's own structure with it.
+ */
+export function renderIssues(
+  result: ScanResult,
+  opts: { now?: Date; minSeverity?: Severity } = {}
+): string {
+  const date = (opts.now ?? new Date()).toISOString().slice(0, 10);
+  const floor = opts.minSeverity ? SEVERITY_RANK[opts.minSeverity] : SEVERITY_RANK.info;
+  const selected = [...result.findings]
+    .filter((finding) => SEVERITY_RANK[finding.severity] <= floor)
+    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.category.localeCompare(b.category));
+
+  if (selected.length === 0) {
+    const qualifier = opts.minSeverity ? ` at or above ${opts.minSeverity}` : '';
+    return `<!-- qmax-mcp: no findings${qualifier} for ${result.url} on ${date} -->\n`;
+  }
+
+  const blocks = selected.map((finding, index) => {
+    // Where the problem is: a selector when the finding has one, the URL when it
+    // does not, and nothing rather than a guess when it has neither.
+    const locus = finding.selector ? `\`${finding.selector}\`` : finding.url ? finding.url : undefined;
+    const lines: string[] = [];
+
+    lines.push(`<!-- issue ${index + 1} of ${selected.length} · ${finding.severity} · ${finding.category} -->`);
+    lines.push('');
+    lines.push('## Summary');
+    lines.push(locus ? `${finding.message} (${locus})` : finding.message);
+    lines.push('');
+    lines.push('## Steps to Reproduce');
+    if (finding.repro) {
+      // A multi-line repro is already a numbered list; a one-liner is a command.
+      lines.push(finding.repro.includes('\n') ? finding.repro : `1. Run \`${finding.repro}\``);
+    } else {
+      lines.push(`1. Open ${result.url}`);
+      if (locus) lines.push(`2. Inspect ${locus}`);
+    }
+    lines.push('');
+    lines.push('## Expected Result');
+    // The suggestion states the fix, which is the same information as the
+    // expected end state. Without one there is nothing honest to assert beyond
+    // the absence of the finding.
+    lines.push(finding.suggestion ?? 'The scan reports no finding here.');
+    lines.push('');
+    lines.push('## Actual Result');
+    lines.push(
+      finding.occurrences && finding.occurrences > 1
+        ? `${finding.message} Observed ${finding.occurrences} times on one page load.`
+        : finding.message
+    );
+    lines.push('');
+    lines.push('## Environment');
+    lines.push(
+      `Found by an automated scan (qmax-mcp \`scan_url\`, Chromium) against ${result.url} on ${date}. ` +
+        `Severity ${finding.severity}, category ${finding.category}.`
+    );
+    return lines.join('\n');
+  });
+
+  return `${blocks.join('\n\n---\n\n')}\n`;
+}
+
 /** Render a scan result as a shareable Markdown report. */
 export function renderReport(result: ScanResult, opts: { now?: Date } = {}): string {
   const grade = gradeFromScore(result.score);

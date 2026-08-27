@@ -12,6 +12,16 @@ entry says what changes for a connected agent.
 
 ### Added
 
+- `scan_url` accepts `format: "issue"`, rendering each finding as a
+  self-contained, tracker-agnostic Markdown block — summary, steps to reproduce,
+  expected result, actual result, environment — built from fields the finding
+  already carried, plus `minSeverity` to limit the export to what is worth
+  filing. `qmax-mcp scan` gains `--format issue` and `--min-severity`. Blocks are
+  delimited by HTML comments so a block pastes into a ticket without carrying the
+  report's structure with it ([#83]).
+
+### Added
+
 - `scan_url` recognises the request shapes common telemetry SDKs use for their
   own transport — Sentry envelopes, PostHog config and capture, GA collect,
   Datadog RUM, Amplitude, Mixpanel — and reports a failing one as a `telemetry`
@@ -311,3 +321,4 @@ account, API key, or hosted service required.
 [#80]: https://github.com/Quality-Max/qmax-mcp/issues/80
 [#81]: https://github.com/Quality-Max/qmax-mcp/issues/81
 [#82]: https://github.com/Quality-Max/qmax-mcp/issues/82
+[#83]: https://github.com/Quality-Max/qmax-mcp/issues/83

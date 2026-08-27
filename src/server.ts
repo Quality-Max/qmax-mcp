@@ -5,7 +5,7 @@ import { generatePlaywrightRepro } from './tools/generate-playwright-repro';
 import { inspectPage } from './tools/inspect-page';
 import { describeExecutionApproval, runPlaywrightTest, type RunPlaywrightTestArgs } from './tools/run-playwright-test';
 import { SUPPORTED_CHECKS, scanUrl } from './tools/scan-url';
-import { renderReport } from './report';
+import { renderIssues, renderReport } from './report';
 import { renderServerInstructions } from './ecosystem';
 import { MCP_SERVER_NAME, PACKAGE_VERSION } from './metadata';
 
@@ -146,7 +146,7 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
     {
       title: 'Scan URL',
       description:
-        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. storageStatePath may name a workspace-relative Playwright storage-state file so the checks can run on an authenticated page; its credentials are loaded into the throwaway browser context and never returned. Because returned findings may reflect private content, authenticated scans also require acknowledgePrivateContent:true as explicit caller consent. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report. baseline takes a previous scan result, or a workspace-relative path to one, and adds a delta reporting which findings are new, fixed, and unchanged — use it to answer whether a change introduced anything rather than comparing two results by eye. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
+        'Inspect a URL with outbound browser and HTTP network requests for console errors, links, accessibility, Core Web Vitals, SEO, security headers, cookie and tracker privacy, mixed content, and page weight. storageStatePath may name a workspace-relative Playwright storage-state file so the checks can run on an authenticated page; its credentials are loaded into the throwaway browser context and never returned. Because returned findings may reflect private content, authenticated scans also require acknowledgePrivateContent:true as explicit caller consent. This may write a local screenshot artifact when screenshot:true. Set format:"markdown" for a shareable graded report, or format:"issue" to render each finding as a self-contained ticket block (summary, steps, expected, actual, environment) ready to paste into a tracker; minSeverity filters that export. baseline takes a previous scan result, or a workspace-relative path to one, and adds a delta reporting which findings are new, fixed, and unchanged — use it to answer whether a change introduced anything rather than comparing two results by eye. allowPrivateNetwork:true is limited to deliberate loopback development targets.',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -162,7 +162,8 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
         maxLinks: z.number().int().min(0).max(250).optional(),
         screenshot: z.boolean().optional(),
         allowPrivateNetwork: z.boolean().optional(),
-        format: z.enum(['json', 'markdown']).optional(),
+        format: z.enum(['json', 'markdown', 'issue']).optional(),
+        minSeverity: z.enum(['critical', 'high', 'medium', 'low', 'info']).optional(),
         weightBudget: z
           .object({
             totalBytes: z.number().int().positive().optional(),
@@ -180,8 +181,9 @@ export function createLocalServer(options: LocalServerOptions = {}): McpServer {
           .optional(),
       },
     },
-    async ({ format, ...args }) => {
+    async ({ format, minSeverity, ...args }) => {
       const result = await scanUrl(args);
+      if (format === 'issue') return textResult(renderIssues(result, { minSeverity }));
       return format === 'markdown' ? textResult(renderReport(result)) : jsonResult(result);
     }
   );
