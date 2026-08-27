@@ -716,6 +716,8 @@ test('the report leads with the baseline verdict', () => {
   // Without a baseline the report is unchanged: no empty section appears.
   const plain = renderReport({ url: 'https://example.com/', score: 100, checks: ['seo'], findingCount: 0, findings: [] });
   assert.equal(plain.includes('Since baseline'), false);
+});
+
 test('page testability counts only handles that survive a copy edit', () => {
   const summary = summarizeTestability([
     { stability: 'stable' },

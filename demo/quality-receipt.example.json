@@ -94,9 +94,9 @@
     "interactiveCount": 5,
     "formCount": 1,
     "locatorCandidates": [
-      "page.getByRole('textbox', { name: \"you@example.com\" })",
+      "page.getByPlaceholder(\"you@example.com\")",
       "page.getByRole('link', { name: \"Pricing\" })",
-      "page.getByRole('button', { name: \"Complete checkout\" })"
+      "page.getByTestId(\"checkout-submit\")"
     ]
   },
   "repro": {
