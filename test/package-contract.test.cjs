@@ -78,6 +78,26 @@ test('supported Node runtime is consistent across package metadata, CI, and rele
   assert.match(releaseGuide, /Node 22\.13 and 24/);
 });
 
+test('the release runbook covers every publication surface', async () => {
+  const releaseGuide = await readFile(path.join(root, 'docs', 'release.md'), 'utf8');
+
+  // A release publishes to three places, and the runbook only described two of
+  // them: 0.7.0 reached npm and the MCP Registry before anyone noticed the
+  // GitHub Release was missing, even though every version back to 0.3.0 has
+  // one. npm and the registry are dispatch-gated by workflows that refuse a bad
+  // tag, so a skipped step there fails loudly; the GitHub Release is the surface
+  // no workflow checks, which is exactly why the runbook has to carry it.
+  assert.match(releaseGuide, /Dispatch the release workflow/);
+  assert.match(releaseGuide, /Publish to MCP Registry/);
+  assert.match(releaseGuide, /gh release create/);
+
+  // Without --verify-tag the CLI happily creates the tag it cannot find, which
+  // attaches the release to whatever main points at rather than to the reviewed
+  // and published commit — and as a lightweight tag, one neither release
+  // workflow would accept.
+  assert.match(releaseGuide, /--verify-tag/);
+});
+
 test('packed artifact contains only the supported public package contract and starts on Node', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-package-contract-'));
   t.after(() => rm(workspace, { recursive: true, force: true }));
