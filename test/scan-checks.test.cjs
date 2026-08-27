@@ -7,6 +7,7 @@ const { DEFAULT_WEIGHT_BUDGET, analyzeWeight } = require('../dist/tools/checks/w
 const { analyzeVitals } = require('../dist/tools/checks/vitals.js');
 const { formatBytes, mergeResourceSignals, transferBytes } = require('../dist/tools/checks/signals.js');
 const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/tools/checks/trackers.js');
+const { describeTelemetryFailure, identifyTelemetryRequest, isPlaceholderCredential } = require('../dist/tools/checks/telemetry.js');
 const { renderReport } = require('../dist/report.js');
 const { assertSelfContainedTest } = require('../dist/tools/run-playwright-test.js');
 const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
@@ -557,6 +558,67 @@ test('the report says how many times a collapsed finding was seen', () => {
   });
   assert.match(single, /Request failed: net::ERR_ABORTED\n/);
   assert.equal(single.includes('seen'), false);
+});
+
+test('telemetry transports are recognised by request shape, not by host', () => {
+  // Both URLs are from one real session. Neither points at the vendor's own
+  // domain: Sentry envelopes went to localhost and PostHog config to the app's
+  // own port, which is why matching is on path and query rather than hostname.
+  const sentry = identifyTelemetryRequest(
+    'https://localhost/api/0/envelope/?sentry_version=7&sentry_key=stub&sentry_client=sentry.javascript.nextjs%2F10.47.0'
+  );
+  assert.equal(sentry.name, 'Sentry');
+  assert.equal(sentry.credential.param, 'sentry_key');
+  assert.equal(sentry.credential.value, 'stub');
+  assert.equal(sentry.placeholderCredential, true);
+
+  const posthog = identifyTelemetryRequest(
+    'http://localhost:13001/ingest/array/stub_posthog_token_disabled_for_e2e_0000/config.js'
+  );
+  assert.equal(posthog.name, 'PostHog');
+  assert.equal(posthog.credential.value, 'stub_posthog_token_disabled_for_e2e_0000');
+  assert.equal(posthog.placeholderCredential, true);
+
+  // Other vendors on the list, and the shapes that must not match.
+  assert.equal(identifyTelemetryRequest('https://www.google-analytics.com/g/collect?tid=G-ABC').name, 'Google Analytics');
+  assert.equal(identifyTelemetryRequest('https://rum.example.com/api/v2/rum').name, 'Datadog RUM');
+  assert.equal(identifyTelemetryRequest('https://example.com/api/0/users/'), null);
+  assert.equal(identifyTelemetryRequest('https://example.com/app.js'), null);
+  assert.equal(identifyTelemetryRequest('not a url'), null);
+});
+
+test('a real credential is not mistaken for a placeholder', () => {
+  // The distinction decides which fix the finding recommends, so a false
+  // positive here would tell a team to empty a DSN that is doing its job.
+  assert.equal(isPlaceholderCredential('stub'), true);
+  assert.equal(isPlaceholderCredential('stub_posthog_token_disabled_for_e2e_0000'), true);
+  assert.equal(isPlaceholderCredential('0000000000'), true);
+  assert.equal(isPlaceholderCredential('xxxxxxxx'), true);
+  assert.equal(isPlaceholderCredential(''), false);
+  // A real Sentry public key and a real PostHog token, neither of which
+  // contains a placeholder word as a segment.
+  assert.equal(isPlaceholderCredential('a1b2c3d4e5f60718293a4b5c6d7e8f90'), false);
+  assert.equal(isPlaceholderCredential('phc_pM4tYq7Lz2Rn8Vw3Kd6Jf1Hs5Bx9Cg0'), false);
+  // "latest" contains "test" but is not a placeholder segment.
+  assert.equal(isPlaceholderCredential('latest'), false);
+});
+
+test('a stubbed SDK is named, with the fix that actually disables it', () => {
+  const signature = identifyTelemetryRequest('https://localhost/api/0/envelope/?sentry_key=stub');
+  const finding = describeTelemetryFailure(signature, 'https://localhost/api/0/envelope/', 'net::ERR_BLOCKED_BY_CLIENT');
+
+  assert.equal(finding.category, 'telemetry');
+  assert.match(finding.message, /^Sentry is initialized with a placeholder credential/);
+  // The point of the issue: name the one-line fix instead of "fix runtime errors".
+  assert.match(finding.suggestion, /prefer an empty DSN\/token/);
+  assert.match(finding.suggestion, /sentry_key=stub/);
+  assert.equal(finding.evidence.failure, 'net::ERR_BLOCKED_BY_CLIENT');
+
+  // A reachable-but-failing vendor endpoint with a real key gets the other advice.
+  const real = identifyTelemetryRequest('https://o1.ingest.sentry.io/api/42/envelope/?sentry_key=a1b2c3d4e5f60718293a4b5c6d7e8f90');
+  const realFinding = describeTelemetryFailure(real, 'https://o1.ingest.sentry.io/api/42/envelope/', 'net::ERR_TIMED_OUT');
+  assert.match(realFinding.message, /^Sentry telemetry requests fail/);
+  assert.match(realFinding.suggestion, /Confirm the Sentry endpoint is reachable/);
 });
 
 test('approval failures name the mode, the outcome, and the way out', () => {
