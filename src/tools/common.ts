@@ -21,6 +21,8 @@ export type Finding = {
   suggestion?: string;
   /** Copy-paste, verifiable reproduction step (curl one-liner or DevTools steps). */
   repro?: string;
+  /** How many times this exact finding was observed. Absent means once. */
+  occurrences?: number;
 };
 
 export const SEVERITY_RANK: Record<Severity, number> = {
@@ -169,6 +171,31 @@ export async function writeTempFile(prefix: string, extension: string, content: 
   const file = path.join(dir, `${safePrefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`);
   await writeFile(file, content, 'utf8');
   return file;
+}
+
+/**
+ * Collapse repeated observations of the same problem into one finding.
+ *
+ * A page that fires the same doomed request three times used to produce three
+ * byte-identical findings — and, because the score charges a penalty per
+ * finding, one misconfigured SDK firing on every render cost 3× the identical
+ * misconfiguration firing once. Findings that agree on severity, category,
+ * message, URL, and selector describe one problem, so they become one finding
+ * whose `occurrences` says how often it was seen. The first observation keeps
+ * its evidence and repro; the count is the only thing repetition adds.
+ */
+export function dedupeFindings(findings: Finding[]): Finding[] {
+  const byKey = new Map<string, Finding>();
+  for (const finding of findings) {
+    const key = JSON.stringify([finding.severity, finding.category, finding.message, finding.url, finding.selector]);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.occurrences = (existing.occurrences ?? 1) + 1;
+    } else {
+      byKey.set(key, { ...finding });
+    }
+  }
+  return Array.from(byKey.values());
 }
 
 export function scoreFromFindings(findings: Finding[]): number {

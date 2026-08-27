@@ -10,7 +10,8 @@ const { identifyTracker, isThirdParty, registrableDomain } = require('../dist/to
 const { renderReport } = require('../dist/report.js');
 const { assertSelfContainedTest } = require('../dist/tools/run-playwright-test.js');
 const { emptySnapshotWarnings } = require('../dist/tools/inspect-page.js');
-const { SUPPORTED_CHECKS, checkSecurityHeaders, resolveChecks } = require('../dist/tools/scan-url.js');
+const { SUPPORTED_CHECKS, checkSecurityHeaders, isBenignNavigationAbort, resolveChecks } = require('../dist/tools/scan-url.js');
+const { dedupeFindings, scoreFromFindings } = require('../dist/tools/common.js');
 const { describeApprovalFailure } = require('../dist/server.js');
 
 const messages = (findings) => findings.map((finding) => finding.message);
@@ -472,6 +473,90 @@ test('HSTS is reported as inapplicable, not missing, on a plain-HTTP page', () =
       .some((f) => /strict-transport/i.test(f.message)),
     false
   );
+});
+
+test('identical findings collapse into one, and the penalty is charged once', () => {
+  // One Sentry SDK with a stub DSN fired the same doomed request three times,
+  // which produced three byte-identical high findings and a 3× score penalty
+  // for one root cause.
+  const finding = {
+    severity: 'high',
+    category: 'console',
+    message: 'error: Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector',
+    url: 'https://localhost/api/0/envelope/',
+  };
+  const deduped = dedupeFindings([
+    { ...finding, evidence: { line: 1 } },
+    { ...finding, evidence: { line: 2 } },
+    { ...finding },
+  ]);
+  assert.equal(deduped.length, 1);
+  assert.equal(deduped[0].occurrences, 3);
+  // The first observation keeps its evidence; the count is all repetition adds.
+  assert.deepEqual(deduped[0].evidence, { line: 1 });
+  assert.equal(scoreFromFindings(deduped), 80);
+});
+
+test('findings that differ in any identity field stay separate', () => {
+  const alt = { severity: 'medium', category: 'accessibility', message: 'Image is missing alt text.', selector: 'img:nth-of-type(1)' };
+  const deduped = dedupeFindings([
+    alt,
+    { ...alt, selector: 'img:nth-of-type(2)' },
+    { ...alt, severity: 'low' },
+    { ...alt, category: 'seo' },
+    { ...alt, message: 'Image is missing alt text?' },
+  ]);
+  assert.equal(deduped.length, 5);
+  // A finding seen once carries no count, and the input is never mutated.
+  assert.equal(deduped[0].occurrences, undefined);
+  assert.equal(alt.occurrences, undefined);
+});
+
+test('router-initiated aborts are recognised; genuine failures are not', () => {
+  const abort = (extra) => ({ url: 'http://localhost:13001/login', failure: 'net::ERR_ABORTED', ...extra });
+
+  // The prefetch/RSC fingerprints: purpose headers, the RSC request header,
+  // the _rsc search param, and Chromium's own prefetch resource type.
+  assert.equal(isBenignNavigationAbort(abort({ headers: { purpose: 'prefetch' } })), true);
+  assert.equal(isBenignNavigationAbort(abort({ headers: { 'sec-purpose': 'prefetch;anonymous-client-ip' } })), true);
+  assert.equal(isBenignNavigationAbort(abort({ headers: { rsc: '1' } })), true);
+  assert.equal(isBenignNavigationAbort(abort({ url: 'http://localhost:13001/login?_rsc=1a2b3' })), true);
+  assert.equal(isBenignNavigationAbort(abort({ resourceType: 'prefetch' })), true);
+
+  // A plain abort on a fetch the page needed keeps its severity.
+  assert.equal(isBenignNavigationAbort(abort({ resourceType: 'fetch', headers: { accept: '*/*' } })), false);
+  // Only aborts qualify: a blocked prefetch is still a blocked request.
+  assert.equal(
+    isBenignNavigationAbort({
+      url: 'http://localhost:13001/x',
+      failure: 'net::ERR_BLOCKED_BY_CLIENT.Inspector',
+      headers: { purpose: 'prefetch' },
+    }),
+    false
+  );
+  // An unparseable URL cannot carry the _rsc fingerprint.
+  assert.equal(isBenignNavigationAbort({ url: 'not a url', failure: 'net::ERR_ABORTED' }), false);
+});
+
+test('the report says how many times a collapsed finding was seen', () => {
+  const base = {
+    url: 'https://example.com/',
+    score: 90,
+    checks: ['console'],
+    findingCount: 1,
+  };
+  const collapsed = renderReport({
+    ...base,
+    findings: [{ severity: 'medium', category: 'network', message: 'Request failed: net::ERR_ABORTED', occurrences: 3 }],
+  });
+  assert.match(collapsed, /Request failed: net::ERR_ABORTED \(seen 3 times\)/);
+
+  const single = renderReport({
+    ...base,
+    findings: [{ severity: 'medium', category: 'network', message: 'Request failed: net::ERR_ABORTED' }],
+  });
+  assert.match(single, /Request failed: net::ERR_ABORTED\n/);
+  assert.equal(single.includes('seen'), false);
 });
 
 test('approval failures name the mode, the outcome, and the way out', () => {

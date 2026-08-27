@@ -182,7 +182,8 @@ export function renderReport(result: ScanResult, opts: { now?: Date } = {}): str
     for (const f of sorted) {
       lines.push('---');
       lines.push('');
-      lines.push(`## ${SEVERITY_EMOJI[f.severity]} ${f.severity} · ${f.message}`);
+      const times = f.occurrences && f.occurrences > 1 ? ` (seen ${f.occurrences} times)` : '';
+      lines.push(`## ${SEVERITY_EMOJI[f.severity]} ${f.severity} · ${f.message}${times}`);
       if (f.url) lines.push(`\`${f.url}\``);
       if (f.selector) lines.push(`Selector: \`${f.selector}\``);
       lines.push('');

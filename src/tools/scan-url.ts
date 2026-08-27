@@ -1,4 +1,12 @@
-import { writeTempFile, type Finding, type Viewport, scoreFromFindings, validateHttpUrl, withPage } from './common';
+import {
+  dedupeFindings,
+  scoreFromFindings,
+  validateHttpUrl,
+  withPage,
+  writeTempFile,
+  type Finding,
+  type Viewport,
+} from './common';
 import { analyzeCookies, toCookieSignal } from './checks/cookies';
 import { analyzeMixedContent, type MarkupResource } from './checks/mixed-content';
 import {
@@ -64,6 +72,46 @@ export function resolveChecks(requested: readonly string[] | undefined): Set<str
 /** Checks that need the page's own network and markup inventory. */
 const PAGE_INVENTORY_CHECKS = ['cookies', 'mixed_content', 'weight'];
 
+export type RequestFailureObservation = {
+  url: string;
+  failure?: string;
+  resourceType?: string;
+  /** Request headers as Playwright reports them: names lowercased. */
+  headers?: Record<string, string>;
+};
+
+/**
+ * Is this failed request the page's own navigation machinery cancelling itself?
+ *
+ * Next.js App Router (and routers like it) abort `<Link>` prefetches and RSC
+ * payload fetches whenever a navigation supersedes them. That happens on
+ * essentially every page, is invisible to users, and is not something the page
+ * author can fix — yet each abort was reported as a medium finding, so a clean
+ * App Router page capped at 80 and the score stopped meaning anything. Only
+ * deliberate aborts with a prefetch/RSC fingerprint qualify; a genuine
+ * `ERR_ABORTED` on an asset or XHR the page needed keeps its severity.
+ *
+ * Must run against the raw request URL: `safeUrlForDisplay` strips the query,
+ * and `?_rsc=` is one of the fingerprints.
+ */
+export function isBenignNavigationAbort(failed: RequestFailureObservation): boolean {
+  if (failed.failure !== 'net::ERR_ABORTED') return false;
+  if (failed.resourceType === 'prefetch') return true;
+
+  const headers = failed.headers ?? {};
+  const purpose = headers['sec-purpose'] ?? headers['purpose'] ?? '';
+  if (purpose.includes('prefetch')) return true;
+  // The Next.js RSC fetch signature: an `RSC: 1` request header, and a `_rsc`
+  // cache-busting search param on the same request.
+  if (headers['rsc'] === '1') return true;
+  try {
+    if (new URL(failed.url).searchParams.has('_rsc')) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export type ScanUrlArgs = {
   url: string;
   checks?: string[];
@@ -93,7 +141,7 @@ export async function scanUrl(args: ScanUrlArgs) {
   const checks = resolveChecks(args.checks);
   const findings: Finding[] = [];
   const consoleMessages: Array<{ type: string; text: string; location?: unknown }> = [];
-  const requestFailures: Array<{ url: string; failure?: string }> = [];
+  const requestFailures: RequestFailureObservation[] = [];
   let mainHeaders: Record<string, string> = {};
   let screenshotPath: string | undefined;
   const metrics: ScanMetrics = {};
@@ -143,6 +191,8 @@ export async function scanUrl(args: ScanUrlArgs) {
       requestFailures.push({
         url: request.url(),
         failure: request.failure()?.errorText,
+        resourceType: request.resourceType(),
+        headers: request.headers(),
       });
     });
 
@@ -163,13 +213,18 @@ export async function scanUrl(args: ScanUrlArgs) {
         });
       }
       for (const failed of requestFailures.slice(0, 20)) {
+        const benign = isBenignNavigationAbort(failed);
         findings.push({
-          severity: 'medium',
+          severity: benign ? 'info' : 'medium',
           category: 'network',
-          message: `Request failed: ${failed.failure ?? 'unknown error'}`,
+          message: benign
+            ? 'Request aborted by the page itself: a prefetch or RSC fetch superseded by navigation.'
+            : `Request failed: ${failed.failure ?? 'unknown error'}`,
           url: safeUrlForDisplay(failed.url),
           repro: `1. Open ${displayUrl}\n2. Open DevTools → Network\n3. Observe request to ${safeUrlForDisplay(failed.url)} fails: ${failed.failure ?? 'unknown error'}`,
-          suggestion: 'Verify the asset or API route is reachable in the tested environment.',
+          suggestion: benign
+            ? 'No action needed: routers abort superseded prefetch and RSC requests by design.'
+            : 'Verify the asset or API route is reachable in the tested environment.',
         });
       }
     }
@@ -461,12 +516,14 @@ export async function scanUrl(args: ScanUrlArgs) {
     }
   });
 
+  // Deduplicate before scoring so a problem observed N times is penalised once.
+  const deduped = dedupeFindings(findings);
   return {
     url: displayUrl,
-    score: scoreFromFindings(findings),
+    score: scoreFromFindings(deduped),
     checks: Array.from(checks),
-    findingCount: findings.length,
-    findings: redactSensitiveData(findings) as Finding[],
+    findingCount: deduped.length,
+    findings: redactSensitiveData(deduped) as Finding[],
     metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
     screenshotPath,
   };
