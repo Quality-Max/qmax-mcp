@@ -10,6 +10,25 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.8.0 — 2026-08-27
+
+Two changes alter what a connected agent sees for an unchanged page. Everything
+else in this release is additive and opt-in.
+
+`inspect_page` ranks `recommendedLocator` by how durable its source is, so a
+control carrying a test id or an id is now addressed by that rather than by its
+role and accessible name. A spec generated from 0.7.0 output and one generated
+now may locate the same control differently; the new locator is the one that
+survives a copy edit or a translation. Two recommendations that silently matched
+nothing are also corrected, so a spec that quietly found zero elements will now
+find the control.
+
+`scan_url` reports a failing telemetry request as a single `telemetry` finding
+naming the SDK, in place of the generic console and network findings it used to
+emit for the same request. A page with a stubbed telemetry SDK therefore scores
+differently than it did on 0.7.0 — one medium finding rather than several,
+which is the same correction 0.7.0 applied to repeated findings.
+
 ### Added
 
 - `scan_url` accepts `format: "issue"`, rendering each finding as a
