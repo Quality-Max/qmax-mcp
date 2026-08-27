@@ -5,7 +5,8 @@ import { runProxy } from './proxy';
 import { printClients } from './clients';
 import { runLocalServer } from './server';
 import { scanUrl } from './tools/scan-url';
-import { renderReport } from './report';
+import type { Severity } from './tools/common';
+import { renderIssues, renderReport } from './report';
 import { writeFile } from 'node:fs/promises';
 import { PACKAGE_VERSION } from './metadata';
 
@@ -50,7 +51,8 @@ program
   .option('--checks <checks>', 'Comma-separated checks to run')
   .option('--max-links <n>', 'Maximum links to check', '50')
   .option('--screenshot', 'Capture a screenshot', false)
-  .option('--format <format>', 'Output format: markdown or json', 'markdown')
+  .option('--format <format>', 'Output format: markdown, json, or issue', 'markdown')
+  .option('--min-severity <severity>', 'With --format issue, export only findings at or above this severity')
   .option('--out <file>', 'Write the report to a file instead of stdout')
   .option(
     '--allow-private-network',
@@ -67,6 +69,7 @@ program
         maxLinks: string;
         screenshot: boolean;
         format: string;
+        minSeverity?: string;
         out?: string;
         allowPrivateNetwork?: boolean;
         baseline?: string;
@@ -86,7 +89,11 @@ program
         baseline: options.baseline,
       });
       const output =
-        options.format === 'json' ? `${JSON.stringify(result, null, 2)}\n` : renderReport(result);
+        options.format === 'json'
+          ? `${JSON.stringify(result, null, 2)}\n`
+          : options.format === 'issue'
+            ? renderIssues(result, { minSeverity: options.minSeverity as Severity | undefined })
+            : renderReport(result);
       if (options.out) {
         await writeFile(options.out, output, 'utf8');
         process.stderr.write(`Report written to ${options.out}\n`);

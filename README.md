@@ -181,6 +181,22 @@ qmax-mcp scan https://example.com/ --baseline artifacts/scan-main.json --fail-on
 and 2 when it was passed without `--baseline`. Persist the last main-branch
 result as the baseline artifact.
 
+### Turn findings into tracker tickets
+
+`format: "issue"` renders each finding as a self-contained Markdown block —
+summary, numbered steps, expected result, actual result, environment — ready to
+paste into a tracker without rewriting it as prose. `minSeverity` limits the
+export to what is worth filing.
+
+```bash
+qmax-mcp scan https://example.com/ --format issue --min-severity medium
+```
+
+Blocks are separated by HTML comments, which render as nothing, so pasting one
+does not carry the report's own structure into the ticket. A finding collapsed
+from several occurrences files as one ticket that states the frequency, rather
+than as several identical tickets.
+
 ## Add it to your coding agent
 
 Copy a ready-made, no-credential configuration and the accompanying instruction file for your client:
