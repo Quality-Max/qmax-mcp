@@ -56,13 +56,34 @@ at npmjs.com → the package → Settings → Publishing access.
    exact version and a `mcpName` matching `server.json`, and confirms the live
    entry afterwards. It authenticates with GitHub OIDC, so there is no registry
    token in this repository.
-7. Record the package version, SHA, provenance link, registry metadata, test
+7. Publish the GitHub Release for the same tag, last, once npm and the
+   registry both serve the version:
+
+   ```bash
+   gh release create v<package-version> --verify-tag \
+     --title "qmax-mcp <package-version>" --notes-file <notes>
+   ```
+
+   Notes follow the published convention: highlights, an
+   `npx -y @qualitymax/qmax-mcp@<version>` install line, a link to the CHANGELOG
+   anchor at that tag, and the merged pull requests. Say plainly when a change
+   makes a result incomparable to the previous version, so nobody reads a
+   scoring correction as an improvement in their own application.
+8. Record the package version, SHA, provenance link, registry metadata, test
    results, rollback owner, and all evidence URLs in the Linear ticket.
 
 The registry entry is a pointer, not a copy: it advertises an npm version and
 carries no artifact of its own. Publishing it before npm has the version
 advertises something nobody can install, which is why it is a separate dispatch
-rather than a step inside the release workflow.
+rather than a step inside the release workflow. The GitHub Release comes last
+for the same reason: its notes advertise an installable version, so publishing
+them first points readers at something they cannot yet install.
+
+`--verify-tag` is not optional. Without it `gh release create` creates a missing
+tag itself, which would attach the release to whatever `main` points at instead
+of to the reviewed, published commit — and a lightweight tag created that way
+would not satisfy the annotated-tag gate either workflow enforces. This step is
+the one publication surface no workflow checks, so the flag is the check.
 
 ## Rollback
 
