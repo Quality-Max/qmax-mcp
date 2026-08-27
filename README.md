@@ -88,8 +88,46 @@ The local server does not require an account. [Hosted proxy mode](#hosted-proxy-
 
 ### Scan or inspect an authenticated page
 
-Save a signed-in Playwright context with `browserContext.storageState()`, keep
-that file gitignored, and pass its path relative to the active workspace:
+Both tools read a Playwright storage-state file. Producing that file is the
+on-ramp, so here are the two shortest ways.
+
+**From a browser you log into yourself** — no code, and it works against any
+login, including SSO and MFA:
+
+```bash
+npx playwright codegen --save-storage=playwright/.auth/user.json https://example.com/login
+```
+
+Sign in in the window that opens, then close it. Playwright writes the state to
+that path on exit.
+
+**From a login your test suite already automates** — repeatable, and the one to
+use in CI:
+
+```js
+// scripts/save-storage-state.mjs — run with: node scripts/save-storage-state.mjs
+import { chromium } from 'playwright';
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+
+await page.goto('https://example.com/login');
+await page.getByLabel('Email').fill(process.env.APP_USER);       // never hardcode
+await page.getByLabel('Password').fill(process.env.APP_PASSWORD);
+await page.getByRole('button', { name: 'Sign in' }).click();
+await page.waitForURL('**/account');                             // wait for the session, not a timeout
+
+await page.context().storageState({ path: 'playwright/.auth/user.json' });
+await browser.close();
+```
+
+Read the credentials from the environment rather than writing them into the
+script, and gitignore the output — `playwright/.auth/` is the conventional
+location and Playwright's own scaffolding already ignores it. A session expires,
+so regenerate the file when scans start coming back as though logged out; a scan
+of a protected page that suddenly reports a login form is the usual symptom.
+
+Then pass the path relative to the active workspace:
 
 ```json
 {

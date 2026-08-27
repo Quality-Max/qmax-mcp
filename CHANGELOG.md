@@ -10,6 +10,15 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Documentation
+
+- The README shows how to produce the Playwright storage-state file that
+  `scan_url` and `inspect_page` accept: a one-line `playwright codegen
+  --save-storage` for a login you sign into yourself, and a short script for one
+  a suite already automates. The capability shipped in 0.5.0, but minting the
+  file meant inventing the procedure, so authenticated pages went unscanned
+  ([#82]).
+
 ### Added
 
 - `scan_url` recognises the request shapes common telemetry SDKs use for their
@@ -266,3 +275,4 @@ account, API key, or hosted service required.
 [#77]: https://github.com/Quality-Max/qmax-mcp/issues/77
 [#78]: https://github.com/Quality-Max/qmax-mcp/issues/78
 [#79]: https://github.com/Quality-Max/qmax-mcp/issues/79
+[#82]: https://github.com/Quality-Max/qmax-mcp/issues/82
