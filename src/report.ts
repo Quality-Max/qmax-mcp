@@ -301,3 +301,174 @@ export function renderReport(result: ScanResult, opts: { now?: Date } = {}): str
 
   return lines.join('\n');
 }
+
+/**
+ * The slice of an `inspect_page` result the Markdown renderer reads. Kept
+ * structural rather than imported so the renderer states what it depends on:
+ * the locator table, the testability verdict, and the warnings that say
+ * whether the snapshot can be trusted.
+ */
+export type InspectResult = {
+  title: string;
+  url: string;
+  headings: Array<{ level: number; text: string }>;
+  interactive: Array<{
+    tag: string;
+    role?: string | null;
+    name?: string;
+    type?: string;
+    stability?: string;
+    selector?: string;
+    recommendedLocator?: string;
+    locatorNote?: string;
+  }>;
+  forms: Array<{ index: number; action: string; method: string; fields: unknown[] }>;
+  testability: {
+    controls: number;
+    stable: number;
+    acceptable: number;
+    fragile: number;
+    none: number;
+    score: number;
+    note?: string;
+  };
+  warnings?: string[];
+};
+
+const STABILITY_EMOJI: Record<string, string> = {
+  stable: '🟢',
+  acceptable: '🟡',
+  fragile: '🟠',
+  none: '🔴',
+};
+
+const STABILITY_RANK: Record<string, number> = { stable: 0, acceptable: 1, fragile: 2, none: 3 };
+
+/** Escape a value for a Markdown table cell without breaking its code span. */
+function cell(value: string): string {
+  return value.replaceAll('|', '\\|').replaceAll('\n', ' ');
+}
+
+/** A short human label for a control: what it is, then what it is called. */
+function controlLabel(control: InspectResult['interactive'][number]): string {
+  const kind = control.role || (control.type ? `${control.tag}[${control.type}]` : control.tag);
+  if (control.name) return `${kind} “${control.name}”`;
+  return control.selector ? `${kind} \`${control.selector}\`` : kind;
+}
+
+/**
+ * Render an `inspect_page` result as a shareable Markdown report.
+ *
+ * The scan renderer leads with the grade because "how bad is it?" is the scan
+ * question. Here the question is "what do I write in my spec?", so the locator
+ * table — best handle first, ready to paste — is the body of the report, and
+ * the testability verdict above it says how far those locators can be trusted
+ * before the first one is read.
+ */
+export function renderInspectReport(result: InspectResult, opts: { now?: Date } = {}): string {
+  const date = (opts.now ?? new Date()).toISOString().slice(0, 10);
+  const t = result.testability;
+
+  const lines: string[] = [];
+  lines.push(`# Page Inspection — ${host(result.url)}`);
+  lines.push('');
+  if (result.title) {
+    lines.push(`**${result.title}**`);
+    lines.push('');
+  }
+
+  // Warnings go before any numbers they would undermine: a testability score
+  // over an empty snapshot is not a verdict on the page.
+  for (const warning of result.warnings ?? []) {
+    lines.push(`> ⚠️ ${warning}`);
+    lines.push('');
+  }
+
+  const shares = (['stable', 'acceptable', 'fragile'] as const)
+    .map((key) => (t[key] > 0 ? `${t[key]} ${key}` : null))
+    .filter((part): part is string => part !== null);
+  if (t.none > 0) shares.push(`${t.none} without a handle`);
+  lines.push(
+    `**Testability: ${t.score} / 100**   ·   ${t.controls} ${t.controls === 1 ? 'control' : 'controls'}` +
+      `${shares.length > 0 ? `: ${shares.join(' · ')}` : ''}   ·   inspected ${date}`
+  );
+  lines.push('');
+  lines.push(`\`${meter(t.score, 100, 24)}\` ${t.score} / 100`);
+  lines.push('');
+  if (t.note) {
+    lines.push(`_${t.note}_`);
+    lines.push('');
+  }
+
+  if (result.interactive.length > 0) {
+    lines.push('## Locators, best handle first');
+    lines.push('');
+    lines.push('| Control | Stability | Locator |');
+    lines.push('|---------|:---------:|---------|');
+    const ranked = [...result.interactive].sort(
+      (a, b) => (STABILITY_RANK[a.stability ?? 'none'] ?? 3) - (STABILITY_RANK[b.stability ?? 'none'] ?? 3)
+    );
+    for (const control of ranked) {
+      const stability = control.stability ?? 'none';
+      const badge = `${STABILITY_EMOJI[stability] ?? '🔴'} ${stability}`;
+      const locator = control.recommendedLocator ? `\`${cell(control.recommendedLocator)}\`` : '—';
+      lines.push(`| ${cell(controlLabel(control))} | ${badge} | ${locator} |`);
+    }
+    lines.push('');
+
+    // One caveat can apply to thirty controls — an unlabelled input rarely
+    // travels alone — so caveats group by their text instead of repeating it.
+    const caveats = new Map<string, string[]>();
+    for (const control of ranked) {
+      if (!control.locatorNote) continue;
+      const labels = caveats.get(control.locatorNote) ?? [];
+      labels.push(controlLabel(control));
+      caveats.set(control.locatorNote, labels);
+    }
+    if (caveats.size > 0) {
+      lines.push('### Caveats');
+      lines.push('');
+      for (const [note, labels] of caveats) {
+        const listed = labels.slice(0, 5).join(', ');
+        const more = labels.length > 5 ? ` and ${labels.length - 5} more` : '';
+        lines.push(`- **${cell(listed)}${more}** — ${note}`);
+      }
+      lines.push('');
+    }
+  } else {
+    lines.push('No interactive controls found.');
+    lines.push('');
+  }
+
+  if (result.headings.length > 0) {
+    lines.push('## Headings');
+    lines.push('');
+    const shown = result.headings.slice(0, 40);
+    for (const heading of shown) {
+      lines.push(`${'  '.repeat(Math.max(0, heading.level - 1))}- H${heading.level} ${heading.text}`);
+    }
+    if (result.headings.length > shown.length) {
+      lines.push(`- …and ${result.headings.length - shown.length} more`);
+    }
+    lines.push('');
+  }
+
+  if (result.forms.length > 0) {
+    lines.push('## Forms');
+    lines.push('');
+    for (const form of result.forms) {
+      const method = form.method ? form.method.toUpperCase() : 'GET';
+      lines.push(
+        `- Form ${form.index}: ${method} ${form.action || '(no action)'} — ${form.fields.length} ${form.fields.length === 1 ? 'field' : 'fields'}`
+      );
+    }
+    lines.push('');
+  }
+
+  lines.push('---');
+  lines.push('');
+  lines.push('_Inspected by **qmax-mcp** · `npx -y @qualitymax/qmax-mcp inspect <url>` · free, local, no account_');
+  lines.push('');
+
+  return lines.join('\n');
+}

@@ -197,6 +197,24 @@ does not carry the report's own structure into the ticket. A finding collapsed
 from several occurrences files as one ticket that states the frequency, rather
 than as several identical tickets.
 
+### Get ranked locators without an MCP client
+
+`inspect` prints the same result as the `inspect_page` tool: every control with
+a ready-to-paste Playwright locator ranked by how durable its source is, a
+per-control stability verdict, and a page-level testability score.
+
+```bash
+qmax-mcp inspect https://example.com/
+qmax-mcp inspect http://localhost:3000/ --allow-private-network --format json --out locators.json
+```
+
+The Markdown report leads with the testability verdict, then the locator table,
+best handle first, with the caveats that make a `fragile` or `none` verdict
+actionable. `--format json` returns the full structure for programmatic
+consumers — a script choosing selectors for a generated spec, or a
+selector-healing tool such as [9lives](https://github.com/Quality-Max/9lives)
+picking the anchor to re-find a control by.
+
 ## Add it to your coding agent
 
 Copy a ready-made, no-credential configuration and the accompanying instruction file for your client:
