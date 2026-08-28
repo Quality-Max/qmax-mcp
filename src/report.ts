@@ -349,11 +349,27 @@ function cell(value: string): string {
   return value.replaceAll('|', '\\|').replaceAll('\n', ' ');
 }
 
+/**
+ * Wrap a page-derived value in a Markdown code span it cannot break out of.
+ *
+ * Backslash escapes do not work inside code spans, so a backtick in the value
+ * is handled the way CommonMark intends: the delimiter is one backtick longer
+ * than the longest backtick run inside, and a value that starts or ends with a
+ * backtick is padded so the delimiter stays unambiguous. The content is
+ * preserved exactly — a selector stays copy-pasteable.
+ */
+function codeSpan(value: string): string {
+  const runs = value.match(/`+/g);
+  const delimiter = '`'.repeat((runs ? Math.max(...runs.map((run) => run.length)) : 0) + 1);
+  const padded = value.startsWith('`') || value.endsWith('`') ? ` ${value} ` : value;
+  return `${delimiter}${padded}${delimiter}`;
+}
+
 /** A short human label for a control: what it is, then what it is called. */
 function controlLabel(control: InspectResult['interactive'][number]): string {
   const kind = control.role || (control.type ? `${control.tag}[${control.type}]` : control.tag);
   if (control.name) return `${kind} “${control.name}”`;
-  return control.selector ? `${kind} \`${control.selector}\`` : kind;
+  return control.selector ? `${kind} ${codeSpan(control.selector)}` : kind;
 }
 
 /**
@@ -411,7 +427,7 @@ export function renderInspectReport(result: InspectResult, opts: { now?: Date } 
     for (const control of ranked) {
       const stability = control.stability ?? 'none';
       const badge = `${STABILITY_EMOJI[stability] ?? '🔴'} ${stability}`;
-      const locator = control.recommendedLocator ? `\`${cell(control.recommendedLocator)}\`` : '—';
+      const locator = control.recommendedLocator ? codeSpan(cell(control.recommendedLocator)) : '—';
       lines.push(`| ${cell(controlLabel(control))} | ${badge} | ${locator} |`);
     }
     lines.push('');

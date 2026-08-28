@@ -102,3 +102,26 @@ test('a control name containing a pipe cannot break the table', () => {
   assert.ok(row.includes('Terms \\| Privacy'), 'pipes inside cells must be escaped');
   assert.equal(row.split(/[^\\]\|/).length, 4, 'the row should still have exactly three cells');
 });
+
+test('a backtick in a selector or locator cannot break out of its code span', () => {
+  const report = renderInspectReport(
+    inspectResult({
+      interactive: [
+        {
+          tag: 'input',
+          type: 'text',
+          stability: 'none',
+          selector: 'input[data-x="a`b"]',
+          recommendedLocator: 'page.locator(\'input[data-x="a`b"]\')',
+        },
+      ],
+      testability: { controls: 1, stable: 0, acceptable: 0, fragile: 0, none: 1, score: 0 },
+    })
+  );
+
+  // CommonMark: a code span whose content contains a backtick needs a longer
+  // delimiter run; backslash escapes do not work inside code spans.
+  assert.ok(report.includes('``input[data-x="a`b"]``'), 'selector should be wrapped in a widened code span');
+  assert.ok(report.includes('``page.locator(\'input[data-x="a`b"]\')``'), 'locator should be wrapped in a widened code span');
+  assert.ok(!report.includes('\\`'), 'no ineffective backslash-escaped backticks');
+});
