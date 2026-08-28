@@ -10,6 +10,17 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Added
+
+- `qmax-mcp inspect <url>` exposes `inspect_page` from the CLI: every control
+  with its ranked `recommendedLocator`, its stability verdict, and the page's
+  testability score, as a Markdown report or `--format json`. The ranking
+  shipped in 0.8.0 but was reachable only through an MCP client, which kept it
+  away from shell callers — a spec author at a terminal, or a selector-healing
+  tool such as [9lives](https://github.com/Quality-Max/9lives) choosing the
+  anchor to re-find a control by. `--out` and `--allow-private-network` work as
+  they do for `scan` ([#95]).
+
 ## 0.8.0 — 2026-08-27
 
 Two changes alter what a connected agent sees for an unchanged page. Everything
@@ -337,3 +348,4 @@ account, API key, or hosted service required.
 [#81]: https://github.com/Quality-Max/qmax-mcp/issues/81
 [#82]: https://github.com/Quality-Max/qmax-mcp/issues/82
 [#83]: https://github.com/Quality-Max/qmax-mcp/issues/83
+[#95]: https://github.com/Quality-Max/qmax-mcp/pull/95

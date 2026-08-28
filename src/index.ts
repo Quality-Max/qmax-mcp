@@ -5,8 +5,9 @@ import { runProxy } from './proxy';
 import { printClients } from './clients';
 import { runLocalServer } from './server';
 import { scanUrl } from './tools/scan-url';
+import { inspectPage } from './tools/inspect-page';
 import type { Severity } from './tools/common';
-import { renderIssues, renderReport } from './report';
+import { type InspectResult, renderInspectReport, renderIssues, renderReport } from './report';
 import { writeFile } from 'node:fs/promises';
 import { PACKAGE_VERSION } from './metadata';
 
@@ -114,6 +115,44 @@ program
           process.stderr.write(`${fresh} new finding${fresh === 1 ? '' : 's'} since baseline.\n`);
           process.exit(1);
         }
+      }
+    }
+  );
+
+program
+  .command('inspect')
+  .description("Print a page's ranked locator candidates and its testability verdict")
+  .argument('<url>', 'URL to inspect')
+  .option('--format <format>', 'Output format: markdown or json', 'markdown')
+  .option('--out <file>', 'Write the report to a file instead of stdout')
+  .option(
+    '--allow-private-network',
+    'Permit a loopback target such as a locally started app. Deliberate local development testing only',
+    false
+  )
+  .action(
+    async (
+      url: string,
+      options: {
+        format: string;
+        out?: string;
+        allowPrivateNetwork?: boolean;
+      }
+    ) => {
+      // The same inspection the MCP tool runs, reachable from a shell: a spec
+      // author — or a tool healing a spec, such as 9lives — gets the ranked
+      // locators and the stability verdicts without needing an MCP client.
+      const result = (await inspectPage({
+        url,
+        allowPrivateNetwork: options.allowPrivateNetwork,
+      })) as InspectResult;
+      const output =
+        options.format === 'json' ? `${JSON.stringify(result, null, 2)}\n` : renderInspectReport(result);
+      if (options.out) {
+        await writeFile(options.out, output, 'utf8');
+        process.stderr.write(`Report written to ${options.out}\n`);
+      } else {
+        process.stdout.write(output.endsWith('\n') ? output : `${output}\n`);
       }
     }
   );
