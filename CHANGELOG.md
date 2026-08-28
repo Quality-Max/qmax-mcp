@@ -10,6 +10,12 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.9.0 — 2026-08-28
+
+Additive only: nothing an existing connected agent sees for an unchanged page
+is different from 0.8.0. Scores, findings, and locator recommendations are
+directly comparable.
+
 ### Added
 
 - `qmax-mcp inspect <url>` exposes `inspect_page` from the CLI: every control
