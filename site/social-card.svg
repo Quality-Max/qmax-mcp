@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <pattern id="grid" width="72" height="72" patternUnits="userSpaceOnUse"><path d="M72 0H0v72" fill="none" stroke="#28302c" stroke-width="1"/></pattern>
+    <radialGradient id="glow" cx="50%" cy="30%" r="65%"><stop offset="0" stop-color="#5b4fcf" stop-opacity=".2"/><stop offset="1" stop-color="#0f0e17" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0f0e17"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(92 90)" fill="none" stroke="#5b4fcf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 0 75 20v40L40 80 5 60V20L40 0Z"/><path d="m25 40 11 11 23-27"/>
+  </g>
+  <text x="190" y="150" fill="#f2f4ef" font-family="Arial, sans-serif" font-size="58" font-weight="700">QualityMax / qmax</text>
+  <text x="92" y="330" fill="#f2f4ef" font-family="Arial, sans-serif" font-size="74" font-weight="700">Ship with evidence.</text>
+  <text x="92" y="415" fill="#8b7ff0" font-family="Arial, sans-serif" font-size="74" font-weight="700">Not confidence.</text>
+  <text x="96" y="500" fill="#99a29d" font-family="Arial, sans-serif" font-size="28">Independent QA evidence for coding agents.</text>
+  <text x="96" y="558" fill="#8b7ff0" font-family="monospace" font-size="22">npx -y @qualitymax/qmax-mcp</text>
+</svg>

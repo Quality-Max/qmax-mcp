@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f0e17" />
+    <meta
+      name="description"
+      content="Local QA tools for coding agents: scan URLs, inspect pages, generate Playwright repros, and run focused tests."
+    />
+    <meta property="og:title" content="qmax — independent QA evidence for coding agents" />
+    <meta
+      property="og:description"
+      content="A local-first MCP server that helps coding agents verify web changes before calling them done."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://qmax.run/" />
+    <meta property="og:image" content="https://qmax.run/social-card.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://qmax.run/" />
+    <link rel="icon" href="https://qualitymax.io/static/img/favicon-color-round.png" type="image/png" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>qmax — QA evidence for coding agents</title>
+  </head>
+  <body>
+    <div class="page-grid" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="https://qualitymax.io" aria-label="Visit QualityMax">
+        <img src="https://qualitymax.io/static/img/qualitymax-logo-white.png" alt="QualityMax" width="878" height="132" />
+        <span class="product-tag">qmax</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#ecosystem">Ecosystem</a>
+        <a href="https://github.com/Quality-Max/qmax-mcp#add-it-to-your-coding-agent">Docs</a>
+        <a class="github-link" href="https://github.com/Quality-Max/qmax-mcp">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 .7a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.6.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.5.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.8 5.4-5.5 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .7Z" />
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span></span> Local-first QA for coding agents</div>
+        <h1>Ship with evidence.<br /><em>Not confidence.</em></h1>
+        <p class="hero-copy">
+          qmax gives your coding agent independent QA evidence before it declares a web change done.
+          One local MCP server. Four focused tools. No account required.
+        </p>
+        <div class="hero-actions">
+          <div class="command-options">
+            <div class="command-option">
+              <small>Run instantly</small>
+              <div class="install-command" aria-label="Run qmax with npx">
+                <span aria-hidden="true">$</span>
+                <code>npx -y @qualitymax/qmax-mcp</code>
+                <button type="button" data-copy="npx -y @qualitymax/qmax-mcp" aria-label="Copy npx command">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" /></svg>
+                  <span class="sr-only">Copy npx command</span>
+                </button>
+              </div>
+            </div>
+            <div class="command-option">
+              <small>Install the CLI</small>
+              <div class="install-command shell-command" aria-label="Install qmax with a shell command">
+                <span aria-hidden="true">$</span>
+                <code>curl -fsSL https://qmax.run/install.sh | sh</code>
+                <button type="button" data-copy="curl -fsSL https://qmax.run/install.sh | sh" aria-label="Copy shell installer command">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" /></svg>
+                  <span class="sr-only">Copy shell installer command</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="secondary-action hero-quickstart" href="https://github.com/Quality-Max/qmax-mcp#start-with-a-useful-result">
+          Read the quickstart <span aria-hidden="true">→</span>
+        </a>
+
+        <div class="terminal" aria-label="Example qmax scan result">
+          <div class="terminal-bar">
+            <div class="traffic-lights" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span>qmax / scan</span>
+            <span class="terminal-status"><i></i> complete</span>
+          </div>
+          <div class="terminal-body">
+            <div class="terminal-command"><b>$</b> qmax-mcp scan https://your-app.dev --format markdown</div>
+            <div class="scan-result">
+              <div class="grade"><strong>B</strong><span>82 / 100</span></div>
+              <div class="result-copy">
+                <span>6 issues found</span>
+                <div class="meter"><i></i></div>
+                <small>2 high · 3 medium · 1 low</small>
+              </div>
+            </div>
+            <div class="finding"><span class="high">HIGH</span><p>Checkout button has no accessible name</p><code>button.icon</code></div>
+            <div class="finding"><span class="medium">MED</span><p>Content Security Policy header is missing</p><code>document</code></div>
+            <div class="terminal-foot">✓ Reproduction steps and suggested fixes included</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="proof-strip" aria-label="Product qualities">
+        <div><strong>4</strong><span>focused tools</span></div>
+        <div><strong>9</strong><span>scan checks</span></div>
+        <div><strong>0</strong><span>accounts required</span></div>
+        <div><strong>MIT</strong><span>open source</span></div>
+      </section>
+
+      <section class="capabilities" id="capabilities">
+        <div class="section-heading">
+          <div>
+            <span class="kicker">The verification loop</span>
+            <h2>From “looks done” to<br />evidence it works.</h2>
+          </div>
+          <p>Each tool does one job well, and each result gives the next step enough context to act.</p>
+        </div>
+        <div class="tool-grid">
+          <article>
+            <span class="tool-number">01</span>
+            <div class="tool-icon scan" aria-hidden="true">⌁</div>
+            <code>scan_url</code>
+            <h3>Find what broke</h3>
+            <p>Run nine checks from one page load: console, links, accessibility, SEO, headers, privacy, weight, and vitals.</p>
+          </article>
+          <article>
+            <span class="tool-number">02</span>
+            <div class="tool-icon inspect" aria-hidden="true">◎</div>
+            <code>inspect_page</code>
+            <h3>See what the agent can use</h3>
+            <p>Return page structure, accessible controls, and ranked Playwright locator candidates without guesswork.</p>
+          </article>
+          <article>
+            <span class="tool-number">03</span>
+            <div class="tool-icon reproduce" aria-hidden="true">↳</div>
+            <code>generate_playwright_repro</code>
+            <h3>Preserve the failure</h3>
+            <p>Turn a finding into a deterministic, reviewable Playwright test contained inside the workspace.</p>
+          </article>
+          <article>
+            <span class="tool-number">04</span>
+            <div class="tool-icon run" aria-hidden="true">▶</div>
+            <code>run_playwright_test</code>
+            <h3>Verify the claim</h3>
+            <p>Execute one focused test behind an explicit approval gate and return structured, auditable evidence.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="ecosystem" id="ecosystem">
+        <div class="section-heading">
+          <div>
+            <span class="kicker">The QualityMax ecosystem</span>
+            <h2>One QA loop.<br />The right tool for each job.</h2>
+          </div>
+          <p>
+            Start local with qmax, add focused open-source tools when the workflow calls for them,
+            or connect to <a href="https://qualitymax.io">QualityMax Cloud</a> for hosted project workflows.
+          </p>
+        </div>
+
+        <div class="ecosystem-grid">
+          <a class="ecosystem-card featured" href="https://qualitymax.io">
+            <span class="ecosystem-kind">Hosted cloud</span>
+            <h3>QualityMax Cloud</h3>
+            <p>Workspace-backed projects, test cases, scripts, and observability when your QA workflow needs a hosted layer.</p>
+            <span class="card-link">Explore QualityMax <b aria-hidden="true">↗</b></span>
+          </a>
+
+          <a class="ecosystem-card" href="https://github.com/Quality-Max/qmax-code">
+            <span class="ecosystem-kind">Terminal agent</span>
+            <h3>qmax-code</h3>
+            <p>An independent AI coding and testing agent for the terminal, with a thin client for QualityMax Cloud MCP.</p>
+            <span class="card-link">View qmax-code <b aria-hidden="true">↗</b></span>
+          </a>
+
+          <a class="ecosystem-card" href="https://github.com/Quality-Max/9lives">
+            <span class="ecosystem-kind">Playwright healing</span>
+            <h3>9Lives</h3>
+            <p>Rerun a broken Playwright spec, classify the failure, and repair locator drift without weakening the assertion.</p>
+            <span class="card-link"><code>9l heal &lt;spec&gt;</code> <b aria-hidden="true">↗</b></span>
+          </a>
+
+          <a class="ecosystem-card" href="https://github.com/Quality-Max/qualitymax-grader">
+            <span class="ecosystem-kind">Test quality</span>
+            <h3>QualityMax Grader</h3>
+            <p>Grade Playwright specs A–F offline for missing assertions, fragile selectors, fixed waits, and unclear steps.</p>
+            <span class="card-link"><code>npx qualitymax-grader &lt;spec&gt;</code> <b aria-hidden="true">↗</b></span>
+          </a>
+
+          <a class="ecosystem-card" href="https://github.com/Quality-Max/free-qa-skills">
+            <span class="ecosystem-kind">Agent skills</span>
+            <h3>Free QA Skills</h3>
+            <p>Repository and page-level QA skills for coding agents: audits, selector checks, security scans, and more.</p>
+            <span class="card-link">Browse free skills <b aria-hidden="true">↗</b></span>
+          </a>
+        </div>
+
+        <p class="ecosystem-note">
+          Each open-source tool is installed and run independently; qmax-mcp does not bundle or execute it for you.
+        </p>
+      </section>
+
+      <section class="local-first">
+        <div class="local-copy">
+          <span class="kicker">Built for the workspace</span>
+          <h2>Your browser. Your code.<br />Your evidence.</h2>
+          <p>The local tools run where the work happens. They do not require a QualityMax account, API key, or hosted service.</p>
+          <ul>
+            <li><span>✓</span> Works with Codex, Claude Code, Cursor, VS Code, and any MCP client</li>
+            <li><span>✓</span> Explicit network and file boundaries</li>
+            <li><span>✓</span> Human approval before executing generated code</li>
+            <li><span>✓</span> Markdown, JSON, and tracker-ready output</li>
+          </ul>
+        </div>
+        <div class="config-card">
+          <div class="config-title"><span>mcp.json</span><i>ready</i></div>
+          <pre><code><span class="punct">{</span>
+  <span class="key">"mcpServers"</span><span class="punct">:</span> <span class="punct">{</span>
+    <span class="key">"qmax"</span><span class="punct">:</span> <span class="punct">{</span>
+      <span class="key">"command"</span><span class="punct">:</span> <span class="string">"npx"</span><span class="punct">,</span>
+      <span class="key">"args"</span><span class="punct">:</span> <span class="punct">[</span>
+        <span class="string">"-y"</span><span class="punct">,</span>
+        <span class="string">"@qualitymax/qmax-mcp"</span>
+      <span class="punct">]</span>
+    <span class="punct">}</span>
+  <span class="punct">}</span>
+<span class="punct">}</span></code></pre>
+          <a href="https://github.com/Quality-Max/qmax-mcp#add-it-to-your-coding-agent">Choose your agent setup <span>→</span></a>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div>
+          <span class="kicker">Open source · local first</span>
+          <h2>Give your agent a<br />definition of done.</h2>
+        </div>
+        <div class="cta-actions">
+          <a class="primary-action" href="https://github.com/Quality-Max/qmax-mcp">View on GitHub <span>↗</span></a>
+          <a href="https://www.npmjs.com/package/@qualitymax/qmax-mcp">Open the npm package <span>→</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand" href="https://qualitymax.io" aria-label="Visit QualityMax">
+        <img src="https://qualitymax.io/static/img/qualitymax-logo-white.png" alt="QualityMax" width="878" height="132" />
+        <span class="product-tag">qmax</span>
+      </a>
+      <p>Independent QA evidence for coding agents.</p>
+      <div><a href="https://qualitymax.io">QualityMax</a><a href="https://github.com/Quality-Max">GitHub</a><a href="https://www.npmjs.com/package/@qualitymax/qmax-mcp">npm</a><a href="https://github.com/Quality-Max/qmax-mcp/blob/main/LICENSE">MIT License</a></div>
+    </footer>
+
+    <div class="copy-toast" role="status" aria-live="polite">Copied to clipboard</div>
+    <script src="site.js"></script>
+  </body>
+</html>
