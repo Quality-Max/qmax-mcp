@@ -125,3 +125,10 @@ test('a backtick in a selector or locator cannot break out of its code span', ()
   assert.ok(report.includes('``page.locator(\'input[data-x="a`b"]\')``'), 'locator should be wrapped in a widened code span');
   assert.ok(!report.includes('\\`'), 'no ineffective backslash-escaped backticks');
 });
+
+test('a newline in the page title cannot inject report structure', () => {
+  const report = renderInspectReport(inspectResult({ title: 'Shop\n# Not a heading' }));
+
+  assert.ok(report.includes('**Shop # Not a heading**'), 'title whitespace should collapse to one line');
+  assert.ok(!report.includes('\n# Not a heading'), 'no injected heading line');
+});

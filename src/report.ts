@@ -389,7 +389,9 @@ export function renderInspectReport(result: InspectResult, opts: { now?: Date } 
   lines.push(`# Page Inspection — ${host(result.url)}`);
   lines.push('');
   if (result.title) {
-    lines.push(`**${result.title}**`);
+    // The one page-derived field the snapshot does not whitespace-collapse;
+    // without this, a newline in document.title injects report structure.
+    lines.push(`**${result.title.replace(/\s+/g, ' ').trim()}**`);
     lines.push('');
   }
 
