@@ -81,10 +81,18 @@ test('the qmax.run site is deployable and points back to the canonical package',
   assert.match(site, /https:\/\/github\.com\/Quality-Max\/free-qa-skills/);
   assert.match(site, /https:\/\/qualitymax\.io/);
   assert.equal((site.match(/class="brand" href="https:\/\/qualitymax\.io"/g) ?? []).length, 2);
-  assert.match(site, /curl -fsSL https:\/\/qmax\.run\/install\.sh \| sh/);
+  assert.match(site, /curl -sL qmax\.run \| sh/);
   assert.match(installer, /package='@qualitymax\/qmax-mcp'/);
   assert.match(installer, /npm install --global "\$\{package\}"/);
   assert.equal(vercelConfig.cleanUrls, true);
+  assert.deepEqual(vercelConfig.redirects, [
+    {
+      source: '/',
+      destination: '/install.sh',
+      permanent: false,
+      missing: [{ type: 'header', key: 'accept', value: '.*text/html.*' }],
+    },
+  ]);
   assert.match(JSON.stringify(vercelConfig), /Content-Security-Policy/);
   assert.match(JSON.stringify(vercelConfig), /Strict-Transport-Security/);
 });
