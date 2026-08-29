@@ -52,3 +52,47 @@ test('launch kit keeps reproducible proof, safety, comparison, and disclosure as
   assert.match(checklist, /GitHub Issues/);
   assert.match(checklist, /SECURITY\.md/);
 });
+
+test('the qmax.run site is deployable and points back to the canonical package', async () => {
+  await Promise.all([
+    access(path.join(root, 'site', 'favicon.svg')),
+    access(path.join(root, 'site', 'social-card.png')),
+  ]);
+
+  const [site, installer, vercelConfig, packageJson, manifest, smithery] = await Promise.all([
+    readFile(path.join(root, 'site', 'index.html'), 'utf8'),
+    readFile(path.join(root, 'site', 'install.sh'), 'utf8'),
+    readFile(path.join(root, 'site', 'vercel.json'), 'utf8').then(JSON.parse),
+    readFile(path.join(root, 'package.json'), 'utf8').then(JSON.parse),
+    readFile(path.join(root, 'server.json'), 'utf8').then(JSON.parse),
+    readFile(path.join(root, 'smithery.yaml'), 'utf8'),
+  ]);
+
+  assert.equal(packageJson.homepage, 'https://qmax.run');
+  assert.equal(manifest.websiteUrl, 'https://qmax.run');
+  assert.match(smithery, /^homepage: https:\/\/qmax\.run$/m);
+  assert.match(site, /<link rel="canonical" href="https:\/\/qmax\.run\/"/);
+  assert.match(site, /<meta property="og:image" content="https:\/\/qmax\.run\/social-card\.png"/);
+  assert.match(site, /npx -y @qualitymax\/qmax-mcp/);
+  assert.match(site, /https:\/\/github\.com\/Quality-Max\/qmax-mcp/);
+  assert.match(site, /https:\/\/github\.com\/Quality-Max\/9lives/);
+  assert.match(site, /https:\/\/github\.com\/Quality-Max\/qmax-code/);
+  assert.match(site, /https:\/\/github\.com\/Quality-Max\/qualitymax-grader/);
+  assert.match(site, /https:\/\/github\.com\/Quality-Max\/free-qa-skills/);
+  assert.match(site, /https:\/\/qualitymax\.io/);
+  assert.equal((site.match(/class="brand" href="https:\/\/qualitymax\.io"/g) ?? []).length, 2);
+  assert.match(site, /curl -sL qmax\.run \| sh/);
+  assert.match(installer, /package='@qualitymax\/qmax-mcp'/);
+  assert.match(installer, /npm install --global "\$\{package\}"/);
+  assert.equal(vercelConfig.cleanUrls, true);
+  assert.deepEqual(vercelConfig.redirects, [
+    {
+      source: '/',
+      destination: '/install.sh',
+      permanent: false,
+      missing: [{ type: 'header', key: 'accept', value: '.*text/html.*' }],
+    },
+  ]);
+  assert.match(JSON.stringify(vercelConfig), /Content-Security-Policy/);
+  assert.match(JSON.stringify(vercelConfig), /Strict-Transport-Security/);
+});

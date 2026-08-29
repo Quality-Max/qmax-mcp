@@ -8,7 +8,7 @@
     "url": "https://github.com/Quality-Max/qmax-mcp",
     "source": "github"
   },
-  "websiteUrl": "https://qualitymax.io",
+  "websiteUrl": "https://qmax.run",
   "packages": [
     {
       "registryType": "npm",

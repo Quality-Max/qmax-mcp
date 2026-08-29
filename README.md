@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@qualitymax/qmax-mcp)](https://www.npmjs.com/package/@qualitymax/qmax-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2022.13.0-brightgreen)](https://nodejs.org/)
-[![Website](https://img.shields.io/badge/Website-qualitymax.io-7c3aed)](https://qualitymax.io)
+[![Website](https://img.shields.io/badge/Website-qmax.run-baff29)](https://qmax.run)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/kbEC28D4)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/qualitymax)
 
