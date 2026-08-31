@@ -1,17 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">qmax by QualityMax</title>
+  <desc id="desc">Independent QA evidence for coding agents.</desc>
   <defs>
-    <pattern id="grid" width="72" height="72" patternUnits="userSpaceOnUse"><path d="M72 0H0v72" fill="none" stroke="#28302c" stroke-width="1"/></pattern>
-    <radialGradient id="glow" cx="50%" cy="30%" r="65%"><stop offset="0" stop-color="#5b4fcf" stop-opacity=".2"/><stop offset="1" stop-color="#0f0e17" stop-opacity="0"/></radialGradient>
+    <linearGradient id="copy-safe" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity=".98"/>
+      <stop offset=".48" stop-color="#fff" stop-opacity=".93"/>
+      <stop offset=".66" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="command" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#f5f3ff" stop-opacity=".88"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-40%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#3730a3" flood-opacity=".10"/>
+    </filter>
   </defs>
-  <rect width="1200" height="630" fill="#0f0e17"/>
-  <rect width="1200" height="630" fill="url(#grid)"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
-  <g transform="translate(92 90)" fill="none" stroke="#5b4fcf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M40 0 75 20v40L40 80 5 60V20L40 0Z"/><path d="m25 40 11 11 23-27"/>
+
+  <image href="social-card-bg.png" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="840" height="630" fill="url(#copy-safe)"/>
+
+  <image href="qualitymax-logo-black.png" x="72" y="58" width="226" height="34"/>
+  <g transform="translate(324 54)">
+    <rect width="214" height="42" rx="21" fill="#fff" stroke="#ddd6fe"/>
+    <circle cx="22" cy="21" r="5" fill="#6366f1"/>
+    <text x="36" y="26" fill="#4c1d95" font-family="Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1.15">OPEN SOURCE · LOCAL</text>
   </g>
-  <text x="190" y="150" fill="#f2f4ef" font-family="Arial, sans-serif" font-size="58" font-weight="700">QualityMax / qmax</text>
-  <text x="92" y="330" fill="#f2f4ef" font-family="Arial, sans-serif" font-size="74" font-weight="700">Ship with evidence.</text>
-  <text x="92" y="415" fill="#8b7ff0" font-family="Arial, sans-serif" font-size="74" font-weight="700">Not confidence.</text>
-  <text x="96" y="500" fill="#99a29d" font-family="Arial, sans-serif" font-size="28">Independent QA evidence for coding agents.</text>
-  <text x="96" y="558" fill="#8b7ff0" font-family="monospace" font-size="22">npx -y @qualitymax/qmax-mcp</text>
+
+  <text x="72" y="184" fill="#6366f1" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="4">QMAX</text>
+  <text x="72" y="260" fill="#18181b" font-family="Arial, sans-serif" font-size="57" font-weight="700" letter-spacing="-1.7">Independent QA evidence</text>
+  <text x="72" y="326" fill="#18181b" font-family="Arial, sans-serif" font-size="57" font-weight="700" letter-spacing="-1.7">for coding agents<tspan fill="#6366f1">.</tspan></text>
+  <text x="74" y="382" fill="#52525b" font-family="Arial, sans-serif" font-size="22">Inspect the browser. Reproduce the failure. Ship the proof.</text>
+
+  <g transform="translate(72 426)" filter="url(#shadow)">
+    <rect width="530" height="68" rx="16" fill="url(#command)" stroke="#e4e4e7"/>
+    <circle cx="26" cy="34" r="6" fill="#34d399"/>
+    <text x="48" y="42" fill="#27272a" font-family="Menlo, Consolas, monospace" font-size="20">npx -y @qualitymax/qmax-mcp</text>
+  </g>
+
+  <g transform="translate(74 561)">
+    <circle cx="5" cy="-7" r="5" fill="#6366f1"/>
+    <text x="22" y="0" fill="#3f3f46" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="1.3">QMAX.RUN</text>
+  </g>
 </svg>
