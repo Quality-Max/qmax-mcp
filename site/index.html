@@ -35,6 +35,7 @@
         <span class="product-tag">qmax</span>
       </a>
       <nav aria-label="Primary navigation">
+        <a href="#demo">Demo</a>
         <a href="#capabilities">Capabilities</a>
         <a href="#ecosystem">Ecosystem</a>
         <a href="https://github.com/Quality-Max/qmax-mcp#add-it-to-your-coding-agent">Docs</a>
@@ -113,6 +114,36 @@
         <div><strong>9</strong><span>scan checks</span></div>
         <div><strong>0</strong><span>accounts required</span></div>
         <div><strong>MIT</strong><span>open source</span></div>
+      </section>
+
+      <section class="live-demo" id="demo">
+        <div class="section-heading">
+          <div>
+            <span class="kicker">Watch it run</span>
+            <h2>All four tools.<br />One recorded run.</h2>
+          </div>
+          <p>
+            A replay of <code>npm run demo</code> against the checked-in fixture: scan, inspect,
+            generate a repro, then execute it behind the approval gate. Real output, real timing —
+            nothing staged but the pauses.
+          </p>
+        </div>
+        <div class="terminal terminal-demo">
+          <div class="terminal-bar">
+            <div class="traffic-lights" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span>qmax / demo</span>
+            <span class="terminal-status"><i></i> <span data-demo-status>ready</span></span>
+          </div>
+          <pre class="demo-screen" data-demo-screen tabindex="0" aria-label="Recorded qmax demo output"></pre>
+          <div class="demo-controls">
+            <button type="button" data-demo-play>▶ Play demo</button>
+            <button type="button" data-demo-skip>Skip to end</button>
+          </div>
+        </div>
+        <p class="demo-note">
+          The executed test <em>fails on purpose</em>: the fixture keeps its defect, and a failing run is
+          the evidence that the repro actually reproduces it.
+        </p>
       </section>
 
       <section class="capabilities" id="capabilities">

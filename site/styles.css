@@ -208,3 +208,14 @@ footer .brand { color: var(--ink); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: .01ms !important; }
 }
+
+/* Recorded console demo */
+.live-demo { max-width: 1120px; margin: 96px auto 0; padding: 0 24px; }
+.terminal-demo { max-width: 900px; margin-top: 42px; }
+.demo-screen { margin: 0; padding: 22px 26px; height: 420px; overflow-y: auto; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #c4cbc7; white-space: pre-wrap; word-break: break-word; }
+.demo-screen:empty::before { content: 'Press “Play demo” to replay the recorded run.'; color: var(--faint); }
+.demo-screen:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.demo-controls { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.demo-controls button { border: 1px solid var(--line-strong); border-radius: 6px; background: rgba(91,79,207,.10); color: #d6d2f7; padding: 7px 14px; font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; cursor: pointer; }
+.demo-controls button:hover { background: rgba(91,79,207,.2); }
+.demo-note { max-width: 900px; margin: 16px auto 0; color: var(--faint); font-size: 13px; text-align: center; }
