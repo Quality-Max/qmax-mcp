@@ -102,7 +102,7 @@ button, input { font: inherit; }
 .finding code { color: #69736d; font-size: 10px; }
 .terminal-foot { margin-top: 18px; padding: 9px 12px; border-radius: 5px; color: #aaa3ef; background: rgba(91,79,207,.08); }
 
-.proof-strip { display: grid; grid-template-columns: repeat(4, 1fr); width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 35px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.proof-strip { display: grid; grid-template-columns: repeat(5, 1fr); width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 35px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .proof-strip div { display: grid; place-items: center; gap: 5px; border-right: 1px solid var(--line); }
 .proof-strip div:last-child { border-right: 0; }
 .proof-strip strong { font-size: 26px; letter-spacing: -.04em; }
@@ -189,8 +189,8 @@ footer .brand { color: var(--ink); }
   .finding { grid-template-columns: 38px 1fr; padding: 8px 0; }
   .finding code { display: none; }
   .proof-strip { grid-template-columns: repeat(2, 1fr); gap: 28px 0; }
-  .proof-strip div:nth-child(2) { border-right: 0; }
-  .proof-strip div:nth-child(-n+2) { padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  .proof-strip div:nth-child(even) { border-right: 0; }
+  .proof-strip div:nth-child(-n+4) { padding-bottom: 28px; border-bottom: 1px solid var(--line); }
   .capabilities { padding: 90px 0; }
   .ecosystem { padding-bottom: 90px; }
   .ecosystem-grid { grid-template-columns: 1fr; }
