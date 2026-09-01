@@ -24,12 +24,42 @@ const exitCode = await new Promise((resolve, reject) => {
 });
 if (exitCode !== 0) throw new Error(`Demo recording failed: ${stderr || `exit ${exitCode}`}`);
 
-const command = '$ npm run demo -- --format markdown\r\n';
+// The recording replays the real run's bytes, but paced like the run rather
+// than pasted as one frame: the command types out, output arrives line by
+// line, and section boundaries pause long enough to register. Content is
+// never invented or reordered — only event timestamps are staged.
+const command = 'npm run demo -- --format markdown';
+const events = [];
+let clock = 0.4;
+for (const ch of command) {
+  events.push([clock, 'o', ch]);
+  clock += ch === ' ' ? 0.09 : 0.035;
+}
+clock += 0.5;
+events.push([clock, 'o', '\r\n']);
+clock += 0.7;
+
+const lines = stdout.split('\n');
+for (const [index, line] of lines.entries()) {
+  // Breathe before a new section so the reader can finish the previous one.
+  if (/^(#|## |---)/.test(line)) clock += 0.55;
+  events.push([clock, 'o', index < lines.length - 1 ? `${line}\n` : line]);
+  clock += line.trim() === '' ? 0.02 : 0.045;
+}
+
 const cast = [
-  JSON.stringify({ version: 2, width: 100, height: 30, timestamp: Math.floor(Date.now() / 1000), title: 'QualityMax scan to repro' }),
-  JSON.stringify([0, 'o', command]),
-  JSON.stringify([0.6, 'o', stdout]),
+  JSON.stringify({
+    version: 2,
+    width: 100,
+    height: 30,
+    timestamp: Math.floor(Date.now() / 1000),
+    title: 'QualityMax scan to repro',
+  }),
+  ...events.map((event) => JSON.stringify(event)),
 ].join('\n');
 
-await writeFile(path.join(root, 'scan-to-repro.cast'), `${cast}\n`, 'utf8');
-process.stdout.write('Terminal recording written to demo/scan-to-repro.cast\n');
+// The site replays the same recording; writing both here is what keeps the
+// deployed demo and the repository artifact from drifting apart.
+const targets = [path.join(root, 'scan-to-repro.cast'), path.join(root, '..', 'site', 'demo.cast')];
+await Promise.all(targets.map((target) => writeFile(target, `${cast}\n`, 'utf8')));
+process.stdout.write(`Terminal recording written to ${targets.map((t) => path.relative(path.join(root, '..'), t)).join(' and ')}\n`);

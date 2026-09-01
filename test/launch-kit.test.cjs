@@ -100,3 +100,31 @@ test('the qmax.run site is deployable and points back to the canonical package',
   assert.match(JSON.stringify(vercelConfig), /Content-Security-Policy/);
   assert.match(JSON.stringify(vercelConfig), /Strict-Transport-Security/);
 });
+
+test('the site console demo replays the recording the demo actually produced', async () => {
+  const [siteCast, demoCast, site, siteJs] = await Promise.all([
+    readFile(path.join(root, 'site', 'demo.cast'), 'utf8'),
+    readFile(path.join(root, 'demo', 'scan-to-repro.cast'), 'utf8'),
+    readFile(path.join(root, 'site', 'index.html'), 'utf8'),
+    readFile(path.join(root, 'site', 'site.js'), 'utf8'),
+  ]);
+
+  // Byte-identical by construction: record.mjs writes both. If they diverge,
+  // the site is showing a run the repository cannot vouch for.
+  assert.equal(siteCast, demoCast);
+
+  const [header, ...events] = siteCast.trim().split('\n').map((line) => JSON.parse(line));
+  assert.equal(header.version, 2);
+  // Paced, not pasted: one giant frame is what this recording used to be.
+  assert.ok(events.length > 50, `expected a line-paced recording, got ${events.length} events`);
+  const transcript = events.map(([, , data]) => data).join('');
+  for (const tool of ['scan_url', 'inspect_page', 'generate_playwright_repro', 'run_playwright_test']) {
+    assert.match(transcript, new RegExp(tool));
+  }
+
+  assert.match(site, /data-demo-screen/);
+  assert.match(site, /data-demo-play/);
+  // The player fetches the same-origin cast; the CSP only allows 'self'.
+  assert.match(siteJs, /fetch\('demo\.cast'\)/);
+  assert.match(siteJs, /prefers-reduced-motion/);
+});
