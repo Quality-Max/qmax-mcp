@@ -17,6 +17,17 @@ copyButtons.forEach((copyButton) => {
   });
 });
 
+// ---- Live npm weekly downloads -------------------------------------------
+const downloadsStat = document.querySelector('[data-npm-downloads]');
+if (downloadsStat) {
+  fetch('https://api.npmjs.org/downloads/point/last-week/@qualitymax/qmax-mcp')
+    .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+    .then(({ downloads }) => {
+      downloadsStat.textContent = new Intl.NumberFormat('en', { notation: 'compact' }).format(downloads);
+    })
+    .catch(() => {});
+}
+
 // ---- Recorded console demo ----------------------------------------------
 // Replays site/demo.cast (asciicast v2, written by `npm run demo:record`)
 // into a plain <pre>. Hand-rolled on purpose: the recording carries no ANSI
