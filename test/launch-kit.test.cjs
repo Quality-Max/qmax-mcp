@@ -79,7 +79,7 @@ test('the qmax.run site is deployable and points back to the canonical package',
   assert.match(site, /<meta name="twitter:image" content="https:\/\/qmax\.run\/social-card\.png"/);
   assert.match(site, /npx -y @qualitymax\/qmax-mcp/);
   assert.match(site, /https:\/\/github\.com\/Quality-Max\/qmax-mcp/);
-  assert.match(site, /https:\/\/github\.com\/Quality-Max\/9lives/);
+  assert.match(site, /https:\/\/9lives\.run/);
   assert.match(site, /https:\/\/github\.com\/Quality-Max\/qmax-code/);
   assert.match(site, /https:\/\/github\.com\/Quality-Max\/qualitymax-grader/);
   assert.match(site, /https:\/\/github\.com\/Quality-Max\/free-qa-skills/);
