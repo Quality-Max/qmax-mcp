@@ -18,6 +18,7 @@ product with a different transport and auth model; see
 | Smithery | Only as an `.mcpb` bundle | **Deferred, deliberately** | See [the decision](#smithery-deferred) |
 | GitHub MCP Registry / VS Code gallery | Yes — but onboarding is manual curation | **Not listed; prerequisites met, request not yet sent** | `github.com/mcp/quality-max/qmax-mcp` → 404 |
 | cursor.directory | Reported yes | **Not listed, needs verification** | Probe returned 429; not confirmed |
+| [awesome-playwright](https://github.com/mxschmitt/awesome-playwright) | Yes, README entry | **Declined 2026-09-02; resubmit on traction** | [PR #195](https://github.com/mxschmitt/awesome-playwright/pull/195) closed by the maintainer; see [the note](#awesome-playwright--declined-resubmit-on-traction) |
 | Claude Connectors Directory | No — hosted remote connectors only | **Out of scope here** | Tracked in the hosted epic |
 | Claude Code / Codex | No directory exists | **N/A** | Configured per-project; fixtures ship in `examples/agent-setup/` |
 
@@ -74,6 +75,32 @@ path is first-party confirmed here.
 Note that `cursor.directory` appears to be community-operated rather than a
 Cursor product surface. Confirm that before treating a listing there as an
 official channel.
+
+### awesome-playwright — declined, resubmit on traction
+
+Submitted as [mxschmitt/awesome-playwright#195](https://github.com/mxschmitt/awesome-playwright/pull/195)
+on 2026-09-01, one line under **AI & Agents** alongside the official Playwright
+MCP entry. The maintainer closed it on 2026-09-02 with
+[this comment](https://github.com/mxschmitt/awesome-playwright/pull/195#issuecomment-5515822305):
+
+> Thanks for the submission — the QA-evidence-before-done framing is a sensible
+> one, and the repo clearly has real work in it.
+>
+> I'm passing for now. The AI & Agents section is small and currently holds only
+> the official Playwright tooling, so I'm keeping the bar there high, and
+> 2 stars / 0 forks isn't yet enough external signal for me to add a third-party
+> entry alongside it.
+>
+> Please feel free to resubmit once the project has picked up visible traction.
+
+The rejection is about signal, not fit: the framing and the work were accepted
+as sound, and the section's bar is "more than the official tooling". At close
+the repository had 2 stars and 0 forks.
+
+**Resubmit when** the repo shows visible external traction — stars, forks,
+downstream users, or the npm download count on qmax.run — and lead the new PR
+with that evidence rather than the feature list. Do not resubmit on a version
+bump alone; the same maintainer will see the same signal.
 
 ### Claude Code, Codex — nothing to submit
 
