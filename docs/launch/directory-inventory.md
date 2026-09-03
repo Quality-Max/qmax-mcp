@@ -18,6 +18,9 @@ product with a different transport and auth model; see
 | Smithery | Only as an `.mcpb` bundle | **Deferred, deliberately** | See [the decision](#smithery-deferred) |
 | GitHub MCP Registry / VS Code gallery | Yes — but onboarding is manual curation | **Not listed; prerequisites met, request not yet sent** | `github.com/mcp/quality-max/qmax-mcp` → 404 |
 | cursor.directory | Reported yes | **Not listed, needs verification** | Probe returned 429; not confirmed |
+| [awesome-testing](https://github.com/TheJambo/awesome-testing) | Yes, README entry | **Listed** | [PR #224](https://github.com/TheJambo/awesome-testing/pull/224) merged 2026-09-01; entry live under *UI & End-to-End Testing* |
+| [awesome-mcp-servers (TensorBlock)](https://github.com/TensorBlock/awesome-mcp-servers) | Yes, category page entry | **Listed** | [PR #2113](https://github.com/TensorBlock/awesome-mcp-servers/pull/2113) merged 2026-09-01; entry live in [Browser Automation & Web Scraping](https://github.com/TensorBlock/awesome-mcp-servers/blob/main/docs/browser-automation--web-scraping.md) |
+| [awesome-playwright](https://github.com/mxschmitt/awesome-playwright) | Yes, README entry | **Declined 2026-09-02; resubmit on traction** | [PR #195](https://github.com/mxschmitt/awesome-playwright/pull/195) closed by the maintainer; see [the note](#awesome-playwright--declined-resubmit-on-traction) |
 | Claude Connectors Directory | No — hosted remote connectors only | **Out of scope here** | Tracked in the hosted epic |
 | Claude Code / Codex | No directory exists | **N/A** | Configured per-project; fixtures ship in `examples/agent-setup/` |
 
@@ -74,6 +77,50 @@ path is first-party confirmed here.
 Note that `cursor.directory` appears to be community-operated rather than a
 Cursor product surface. Confirm that before treating a listing there as an
 official channel.
+
+### awesome-testing, awesome-mcp-servers — listed
+
+Two curated lists accepted a one-line entry on 2026-09-01, both verified live
+on the default branch on 2026-09-03:
+
+- [TheJambo/awesome-testing#224](https://github.com/TheJambo/awesome-testing/pull/224),
+  under *UI & End-to-End Testing*, alphabetical between QA Wolf and the next
+  entry. Merged the same day.
+- [TensorBlock/awesome-mcp-servers#2113](https://github.com/TensorBlock/awesome-mcp-servers/pull/2113),
+  in the *Browser Automation & Web Scraping* category page. Merged within an
+  hour. This list is generated per category, so the entry lives in
+  `docs/browser-automation--web-scraping.md`, not the top-level README.
+
+Both listings are surfaced where a first-time visitor sees them: the README
+badge row links to each list, and qmax.run carries a "listed in" row under the
+proof strip. When the entry text changes upstream or a list is archived, update
+those two surfaces with this inventory.
+
+### awesome-playwright — declined, resubmit on traction
+
+Submitted as [mxschmitt/awesome-playwright#195](https://github.com/mxschmitt/awesome-playwright/pull/195)
+on 2026-09-01, one line under **AI & Agents** alongside the official Playwright
+MCP entry. The maintainer closed it on 2026-09-02 with
+[this comment](https://github.com/mxschmitt/awesome-playwright/pull/195#issuecomment-5515822305):
+
+> Thanks for the submission — the QA-evidence-before-done framing is a sensible
+> one, and the repo clearly has real work in it.
+>
+> I'm passing for now. The AI & Agents section is small and currently holds only
+> the official Playwright tooling, so I'm keeping the bar there high, and
+> 2 stars / 0 forks isn't yet enough external signal for me to add a third-party
+> entry alongside it.
+>
+> Please feel free to resubmit once the project has picked up visible traction.
+
+The rejection is about signal, not fit: the framing and the work were accepted
+as sound, and the section's bar is "more than the official tooling". At close
+the repository had 2 stars and 0 forks.
+
+**Resubmit when** the repo shows visible external traction — stars, forks,
+downstream users, or the npm download count on qmax.run — and lead the new PR
+with that evidence rather than the feature list. Do not resubmit on a version
+bump alone; the same maintainer will see the same signal.
 
 ### Claude Code, Codex — nothing to submit
 
