@@ -6,6 +6,8 @@
 [![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2022.13.0-brightgreen)](https://nodejs.org/)
 [![Website](https://img.shields.io/badge/Website-qmax.run-baff29)](https://qmax.run)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/kbEC28D4)
+[![Listed in awesome-testing](https://img.shields.io/badge/awesome--testing-listed-ff69b4)](https://github.com/TheJambo/awesome-testing#ui--end-to-end-testing)
+[![Listed in awesome-mcp-servers](https://img.shields.io/badge/awesome--mcp--servers-listed-ff69b4)](https://github.com/TensorBlock/awesome-mcp-servers/blob/main/docs/browser-automation--web-scraping.md)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/qualitymax)
 
 Give a coding agent independent QA evidence before it declares a web change done: scan the page, inspect the UI, generate a focused Playwright repro, then review the execution result.
