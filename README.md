@@ -18,6 +18,10 @@ npx -y @qualitymax/qmax-mcp
 
 The four local tools require no QualityMax account, API key, or hosted service.
 
+[Documentation](https://docs.qualitymax.io/) · [Hosted MCP setup](https://docs.qualitymax.io/quickstart-mcp/) · [Local demo](demo/README.md)
+
+This package provides four standalone local tools. Hosted workspace access is a separate authenticated connection; use the hosted MCP setup when you need platform projects and workflows.
+
 ## Start with a useful result
 
 Ask an MCP-enabled agent to scan the URL it changed, or run the local CLI:
