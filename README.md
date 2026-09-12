@@ -1,9 +1,5 @@
 # QualityMax QA MCP
 
-[Documentation](https://docs.qualitymax.io/) · [Hosted MCP setup](https://docs.qualitymax.io/quickstart-mcp/) · [Local demo](demo/README.md)
-
-This package provides four standalone local tools. Hosted workspace access is a separate authenticated connection; use the hosted MCP setup when you need platform projects and workflows.
-
 [![npm version](https://img.shields.io/npm/v/@qualitymax/qmax-mcp?color=217a45)](https://www.npmjs.com/package/@qualitymax/qmax-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@qualitymax/qmax-mcp)](https://www.npmjs.com/package/@qualitymax/qmax-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -21,6 +17,10 @@ npx -y @qualitymax/qmax-mcp
 ```
 
 The four local tools require no QualityMax account, API key, or hosted service.
+
+[Documentation](https://docs.qualitymax.io/) · [Hosted MCP setup](https://docs.qualitymax.io/quickstart-mcp/) · [Local demo](demo/README.md)
+
+This package provides four standalone local tools. Hosted workspace access is a separate authenticated connection; use the hosted MCP setup when you need platform projects and workflows.
 
 ## Start with a useful result
 
