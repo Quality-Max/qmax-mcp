@@ -458,6 +458,26 @@ export async function inspectPage(args: InspectPageArgs) {
           return tag;
         };
 
+        const rolesRequiringAName = new Set([
+          'button',
+          'link',
+          'textbox',
+          'searchbox',
+          'checkbox',
+          'radio',
+          'switch',
+          'combobox',
+          'listbox',
+          'slider',
+          'spinbutton',
+          'menuitem',
+          'menuitemcheckbox',
+          'menuitemradio',
+          'tab',
+          'option',
+          'treeitem',
+        ]);
+
         const interactive = Array.from(
           document.querySelectorAll('button, a[href], input, textarea, select, [role], [data-testid], [data-test], [data-qa]')
         )
@@ -466,6 +486,9 @@ export async function inspectPage(args: InspectPageArgs) {
             const role = roleFor(el);
             const named = namedBy(el);
             const name = named?.name ?? '';
+            // A name attribute is a handle, not an accessible name: a screen
+            // reader does not announce it and getByRole does not match it.
+            const accessibleName = named && named.source !== 'name-attribute' ? name : '';
             const testIdAttribute = ['data-testid', 'data-test', 'data-qa'].find((attribute) =>
               el.getAttribute(attribute)
             );
@@ -517,11 +540,29 @@ export async function inspectPage(args: InspectPageArgs) {
                 'No stable handle: this control has no test id, no id, and no accessible name. The locator above is the least brittle option the page allows and is positional, so it moves with the markup. The durable fix is a data-testid on the control.';
             }
 
+            // A test id or an id is a durable handle whether or not the control
+            // has an accessible name, so the verdict stands. Alone, though,
+            // "stable" beside a control a screen reader cannot name reads as
+            // "fine", while scan reports the same control as unlabelled.
+            if (
+              stability === 'stable' &&
+              !accessibleName &&
+              rolesRequiringAName.has(role) &&
+              (el.getAttribute('type') || '').toLowerCase() !== 'hidden'
+            ) {
+              const formField = ['input', 'select', 'textarea'].includes(el.tagName.toLowerCase());
+              locatorNote =
+                'Easy to locate, not accessible: this control has no accessible name, so assistive technology announces only its role and getByRole cannot address it by name.' +
+                (formField ? ' `scan` reports the same control as "Form control has no accessible label."' : '') +
+                ' Associate a visible label or an aria-label.';
+            }
+
             return {
               tag: el.tagName.toLowerCase(),
               role,
               name,
               nameSource: named?.source,
+              accessibleName,
               stability,
               href: (el as HTMLAnchorElement).href || undefined,
               type: el.getAttribute('type') || undefined,

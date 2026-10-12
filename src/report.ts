@@ -316,6 +316,8 @@ export type InspectResult = {
     tag: string;
     role?: string | null;
     name?: string;
+    nameSource?: string;
+    accessibleName?: string;
     type?: string;
     stability?: string;
     selector?: string;
@@ -365,11 +367,23 @@ function codeSpan(value: string): string {
   return `${delimiter}${padded}${delimiter}`;
 }
 
-/** A short human label for a control: what it is, then what it is called. */
+/**
+ * A short human label for a control: what it is, then what it is called.
+ *
+ * Only an accessible name goes in quotes. A name read off the `name` attribute
+ * used to be quoted exactly like a label, so an unlabelled checkbox read as
+ * named in the same report where `scan` flagged it as having no label.
+ */
 function controlLabel(control: InspectResult['interactive'][number]): string {
   const kind = control.role || (control.type ? `${control.tag}[${control.type}]` : control.tag);
+  if (control.nameSource === 'name-attribute' && control.name) {
+    return `${kind} [name=${control.name}] (no accessible name)`;
+  }
   if (control.name) return `${kind} “${control.name}”`;
-  return control.selector ? `${kind} ${codeSpan(control.selector)}` : kind;
+  const label = control.selector ? `${kind} ${codeSpan(control.selector)}` : kind;
+  // A role that differs from the tag is a widget role (`checkbox` for an
+  // <input>); a wrapper carrying only a test id keeps its tag and needs no name.
+  return control.role && control.role !== control.tag ? `${label} (no accessible name)` : label;
 }
 
 /**

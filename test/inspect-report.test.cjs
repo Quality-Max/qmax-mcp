@@ -172,3 +172,35 @@ test('the accessibility tree walks through ignored and structural nodes and repo
   ]);
   assert.equal(flattenAccessibilityTree(nodes, undefined, 1).length, 1, 'the node budget is respected');
 });
+
+test('only an accessible name is quoted; a name attribute is shown as an attribute', () => {
+  const report = renderInspectReport(
+    inspectResult({
+      interactive: [
+        { tag: 'input', role: 'textbox', name: 'E-mail address', nameSource: 'label', stability: 'stable', selector: '#email' },
+        {
+          tag: 'input',
+          type: 'checkbox',
+          role: 'checkbox',
+          name: 'rememberMe',
+          nameSource: 'name-attribute',
+          accessibleName: '',
+          stability: 'stable',
+          selector: '#remember',
+          recommendedLocator: "page.locator('#remember')",
+        },
+        { tag: 'input', type: 'radio', role: 'radio', name: '', stability: 'none', selector: 'form input[type="radio"]' },
+        { tag: 'div', role: 'div', name: '', stability: 'stable', selector: '[data-testid="panel"]' },
+      ],
+      testability: { controls: 4, stable: 3, acceptable: 0, fragile: 0, none: 1, score: 75 },
+    })
+  );
+
+  assert.match(report, /\| textbox “E-mail address” \|/);
+  // #133: the name attribute was quoted exactly like the label above it.
+  assert.doesNotMatch(report, /“rememberMe”/);
+  assert.match(report, /\| checkbox \[name=rememberMe\] \(no accessible name\) \|/);
+  assert.match(report, /\| radio `form input\[type="radio"\]` \(no accessible name\) \|/);
+  // A wrapper that only carries a test id is not a control that needs a name.
+  assert.match(report, /\| div `\[data-testid="panel"\]` \|/);
+});
