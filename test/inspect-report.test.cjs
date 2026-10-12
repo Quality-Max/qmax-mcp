@@ -132,3 +132,43 @@ test('a newline in the page title cannot inject report structure', () => {
   assert.ok(report.includes('**Shop # Not a heading**'), 'title whitespace should collapse to one line');
   assert.ok(!report.includes('\n# Not a heading'), 'no injected heading line');
 });
+
+test('the accessibility tree walks through ignored and structural nodes and reports ARIA roles', () => {
+  const { flattenAccessibilityTree } = require('../dist/tools/inspect-page.js');
+  const nodes = [
+    { nodeId: '1', role: { value: 'RootWebArea' }, name: { value: 'Page' }, childIds: ['2'] },
+    { nodeId: '2', ignored: true, role: { value: 'none' }, childIds: ['3', '6', '7'] },
+    { nodeId: '3', role: { value: 'main' }, name: { value: '' }, childIds: ['4', '5'], backendDOMNodeId: 30 },
+    {
+      nodeId: '4',
+      role: { value: 'textbox' },
+      name: {
+        value: 'E-mail',
+        sources: [
+          { type: 'relatedElement', nativeSource: 'labelfor', value: { value: 'E-mail' } },
+          { type: 'placeholder', attribute: 'placeholder', value: { value: 'you@example.com' }, superseded: true },
+        ],
+      },
+      backendDOMNodeId: 40,
+    },
+    { nodeId: '5', role: { value: 'StaticText' }, name: { value: 'Keep me signed in' } },
+    { nodeId: '7', role: { value: 'Date' }, name: { value: 'Start' }, childIds: ['8'] },
+    { nodeId: '8', role: { value: 'generic' }, name: { value: '' } },
+    {
+      nodeId: '6',
+      role: { value: 'checkbox' },
+      name: { value: '' },
+      properties: [{ name: 'checked', value: { value: 'false' } }, { name: 'disabled', value: { value: true } }],
+    },
+  ];
+  const tags = { 30: 'main', 40: 'input' };
+
+  assert.deepEqual(flattenAccessibilityTree(nodes, (id) => tags[id]), [
+    { role: 'main', name: '', depth: 0, tag: 'main' },
+    { role: 'textbox', name: 'E-mail', nameSource: 'label', depth: 1, tag: 'input' },
+    { role: 'checkbox', name: '', unnamed: true, depth: 0, checked: 'false', disabled: true },
+    // Chromium's internal `Date` role is reported as the role getByRole resolves.
+    { role: 'textbox', name: 'Start', depth: 0 },
+  ]);
+  assert.equal(flattenAccessibilityTree(nodes, undefined, 1).length, 1, 'the node budget is respected');
+});

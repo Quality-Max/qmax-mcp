@@ -10,6 +10,21 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Changed
+
+- `inspect_page`'s `accessibilityTree` is now read from Chromium's computed
+  accessibility tree instead of a DOM walk. A node's `name` is its accessible
+  name, so a labelled field is named by its label, not its placeholder. Its
+  `role` is the ARIA role `getByRole` resolves (`textbox`, `link`,
+  `navigation`), never a tag name. A control without a name is listed with
+  `unnamed: true` instead of being dropped. Nodes also carry `nameSource`,
+  `depth` and, where they apply, `level`, `checked`, `disabled` and `expanded`.
+  Each `interactive` entry now has the same name and `nameSource` as its tree
+  node: `aria-labelledby` outranks `aria-label`, and a button's text outranks
+  its `title`. `interactive` roles now follow Playwright for search, number,
+  range, image, file and `list` inputs and for multi-select lists, so a
+  recommended `getByRole` locator matches the control ([#132]).
+
 ## 0.9.0 — 2026-08-28
 
 Additive only: nothing an existing connected agent sees for an unchanged page
@@ -355,3 +370,4 @@ account, API key, or hosted service required.
 [#82]: https://github.com/Quality-Max/qmax-mcp/issues/82
 [#83]: https://github.com/Quality-Max/qmax-mcp/issues/83
 [#95]: https://github.com/Quality-Max/qmax-mcp/pull/95
+[#132]: https://github.com/Quality-Max/qmax-mcp/issues/132
