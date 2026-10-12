@@ -2,8 +2,17 @@ name: Publish to MCP Registry
 
 # Runs after the npm release, never before it: the registry entry points at an
 # npm version, so publishing first would advertise a package nobody can install.
-# Dispatch this from the same immutable tag the release workflow used.
+# The release workflow calls this once npm has published; dispatch it by hand
+# only to recover a release whose registry step failed. Re-running it for a
+# version the registry already has is safe: the publish is skipped and the
+# entry is confirmed.
 on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Immutable annotated tag already published to npm (for example, v0.3.0).
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       release_tag:
@@ -85,7 +94,16 @@ jobs:
         run: |
           # The registry entry advertises this exact npm version. Refuse to
           # publish a pointer to something the public registry cannot serve.
-          published="$(npm view "@qualitymax/qmax-mcp@${PACKAGE_VERSION}" version)"
+          # Called straight after `npm publish`, the version can take a few
+          # minutes to appear ("Your package is being processed"), so wait for
+          # it rather than failing a release that is still propagating.
+          published=""
+          for attempt in $(seq 1 30); do
+            published="$(npm view --prefer-online "@qualitymax/qmax-mcp@${PACKAGE_VERSION}" version 2>/dev/null || true)"
+            if [ "${published}" = "${PACKAGE_VERSION}" ]; then break; fi
+            echo "npm does not serve ${PACKAGE_VERSION} yet (attempt ${attempt}/30)"
+            sleep 10
+          done
           test "${published}" = "${PACKAGE_VERSION}"
           # Ownership check the registry performs: package.json mcpName must
           # match server.json name, in the published tarball, not just here.
@@ -101,10 +119,32 @@ jobs:
           tar xzf mcp-publisher.tar.gz mcp-publisher
           ./mcp-publisher --version
 
+      - name: Check whether the registry already has this version
+        id: existing
+        env:
+          PACKAGE_VERSION: ${{ needs.resolve-release.outputs.package_version }}
+        run: |
+          set -euo pipefail
+          # The registry rejects a second publish of the same version, so a
+          # re-run after a successful publish (say, one whose confirmation hit
+          # a registry timeout) skips straight to confirming the entry.
+          # curl retries 5xx and timeouts; a 404 is the answer, not a fault.
+          server="$(node -p "encodeURIComponent(require('./server.json').name)")"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 10 --max-time 60 \
+            "https://registry.modelcontextprotocol.io/v0/servers/${server}/versions/${PACKAGE_VERSION}")"
+          echo "registry answered ${status} for ${PACKAGE_VERSION}"
+          case "${status}" in
+            200) echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            *) exit 1 ;;
+          esac
+
       - name: Authenticate to the MCP Registry
+        if: steps.existing.outputs.published != 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish
+        if: steps.existing.outputs.published != 'true'
         run: ./mcp-publisher publish
 
       - name: Confirm the entry is live
@@ -112,29 +152,25 @@ jobs:
           PACKAGE_VERSION: ${{ needs.resolve-release.outputs.package_version }}
         run: |
           set -euo pipefail
-          SERVER_NAME="$(node -p "require('./server.json').name")"
-          export SERVER_NAME
-          listed="$(curl -fsS "https://registry.modelcontextprotocol.io/v0/servers?search=qmax-mcp" | node -e "
-            let raw = '';
-            process.stdin.on('data', (chunk) => (raw += chunk)).on('end', () => {
-              // Two shapes to respect. Each result is wrapped as
-              // { server: {...}, _meta: {...} }, and the list returns EVERY
-              // published version, not just the current one - so matching on
-              // name alone can return a superseded release and fail a release
-              // that actually published. Select the entry the registry marks
-              // as latest.
-              const official = 'io.modelcontextprotocol.registry/official';
-              const named = (JSON.parse(raw).servers || [])
-                .map((entry) => ({
-                  server: entry.server || entry,
-                  meta: (entry._meta || {})[official] || {},
-                }))
-                .filter(({ server }) => server.name === process.env.SERVER_NAME);
-              const current =
-                named.find(({ meta }) => meta.isLatest === true) ||
-                (named.length === 1 ? named[0] : undefined);
-              process.stdout.write(current ? current.server.version : 'missing');
-            });
-          ")"
-          echo "registry reports: ${listed}"
+          # Ask for this server's latest version directly. The search endpoint
+          # used before returned every version of every match and timed out
+          # with a 504 on the 0.9.1 release, failing a run whose publish had
+          # succeeded. A single attempt is not a verdict either way, so retry
+          # both transport errors and an entry that has not propagated yet.
+          server="$(node -p "encodeURIComponent(require('./server.json').name)")"
+          listed="missing"
+          for attempt in $(seq 1 10); do
+            listed="$(curl -fsS --max-time 60 \
+              "https://registry.modelcontextprotocol.io/v0/servers/${server}/versions/latest" | node -e "
+                let raw = '';
+                process.stdin.on('data', (chunk) => (raw += chunk)).on('end', () => {
+                  const entry = JSON.parse(raw);
+                  const meta = (entry._meta || {})['io.modelcontextprotocol.registry/official'] || {};
+                  process.stdout.write(meta.isLatest === false ? 'not-latest' : (entry.server || entry).version);
+                });
+              " || echo "unavailable")"
+            echo "registry reports: ${listed} (attempt ${attempt}/10)"
+            if [ "${listed}" = "${PACKAGE_VERSION}" ]; then break; fi
+            sleep 15
+          done
           test "${listed}" = "${PACKAGE_VERSION}"

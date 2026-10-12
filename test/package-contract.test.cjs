@@ -98,6 +98,29 @@ test('the release runbook covers every publication surface', async () => {
   assert.match(releaseGuide, /--verify-tag/);
 });
 
+test('one release run publishes npm, then the MCP Registry, then the GitHub Release', async () => {
+  const [releaseWorkflow, registryWorkflow] = await Promise.all([
+    readFile(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8'),
+    readFile(path.join(root, '.github', 'workflows', 'publish-mcp-registry.yml'), 'utf8'),
+  ]);
+
+  // 0.9.1 reached npm and the registry from two separate dispatches and its
+  // GitHub Release was missing until created by hand. Each surface advertises
+  // the one before it, so the order is enforced by job dependencies.
+  assert.match(releaseWorkflow, /publish-registry:\n(?:.*\n)*?\s+needs: publish\n\s+uses: \.\/\.github\/workflows\/publish-mcp-registry\.yml/);
+  assert.match(releaseWorkflow, /github-release:\n(?:.*\n)*?\s+needs: \[resolve-release, publish-registry\]/);
+  assert.match(releaseWorkflow, /gh release create "\$\{RELEASE_TAG\}" --verify-tag/);
+  assert.match(registryWorkflow, /workflow_call:/);
+  assert.match(registryWorkflow, /workflow_dispatch:/);
+
+  // A re-run after a successful publish must confirm, not fail on a duplicate.
+  assert.match(registryWorkflow, /if: steps\.existing\.outputs\.published != 'true'\n\s+run: \.\/mcp-publisher publish/);
+  // The search endpoint timed out on 0.9.1; the check reads the server's latest
+  // version directly.
+  assert.doesNotMatch(registryWorkflow, /v0\/servers\?search=/);
+  assert.match(registryWorkflow, /versions\/latest/);
+});
+
 test('packed artifact contains only the supported public package contract and starts on Node', async (t) => {
   const workspace = await mkdtemp(path.join(tmpdir(), 'qmax-package-contract-'));
   t.after(() => rm(workspace, { recursive: true, force: true }));

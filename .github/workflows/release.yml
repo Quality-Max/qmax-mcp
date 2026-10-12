@@ -87,3 +87,49 @@ jobs:
       - run: npm ci --ignore-scripts --engine-strict
       - run: npm run check
       - run: npm publish --provenance --access public
+
+  # npm, then the MCP Registry, then the GitHub Release: each surface advertises
+  # the one before it, so each runs only once the previous one succeeded. The
+  # registry workflow stays dispatchable on its own to recover a failed step.
+  publish-registry:
+    name: Publish to MCP Registry
+    needs: publish
+    uses: ./.github/workflows/publish-mcp-registry.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      release_tag: ${{ inputs.release_tag }}
+
+  github-release:
+    name: Publish GitHub Release
+    needs: [resolve-release, publish-registry]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve-release.outputs.release_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Create the release from the CHANGELOG entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_SHA: ${{ needs.resolve-release.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "${RELEASE_TAG} already has a GitHub Release; leaving it as written."
+            exit 0
+          fi
+          version="${RELEASE_TAG#v}"
+          node scripts/release-notes.cjs "${version}" --sha "${RELEASE_SHA}" > release-notes.md
+          # --verify-tag: without it a missing tag is created from the default
+          # branch, attaching the release to a commit nobody published.
+          gh release create "${RELEASE_TAG}" --verify-tag \
+            --title "qmax-mcp ${version}" --notes-file release-notes.md
