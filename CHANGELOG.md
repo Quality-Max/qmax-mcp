@@ -10,6 +10,19 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Repository, not shipped in the package
+
+- One run of the release workflow now publishes npm, then the MCP Registry, then
+  the GitHub Release. Each job runs only after the one before it succeeded. The
+  GitHub Release notes are generated from the version's CHANGELOG entry by
+  `scripts/release-notes.cjs`. 0.9.1 needed two separate dispatches and a
+  GitHub Release created by hand.
+- The `Publish to MCP Registry` liveness check reads the server's latest version
+  directly and retries. On 0.9.1 the search endpoint it used returned a 504
+  after the publish had succeeded, failing the run. A re-run for a version the
+  registry already has now skips the publish and only confirms the entry, and
+  the workflow waits for npm to serve the version before publishing.
+
 ## 0.9.1 — 2026-10-12
 
 A correctness fix to `inspect_page`. Its `accessibilityTree` now comes from the
