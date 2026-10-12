@@ -35,9 +35,37 @@ export async function assertSafeNetworkUrl(input: string | URL, options: Network
     (!options.privateNetworkOrigin || url.origin === options.privateNetworkOrigin) &&
     isExplicitLoopbackHostname(hostname);
   if (!addresses.length || addresses.some(({ address }) => !isPermittedAddress(address, loopbackAccessApproved))) {
-    throw new Error(SAFE_REJECTION);
+    throw new Error(rejectionFor(url, hostname, options));
   }
   return url;
+}
+
+/**
+ * Say which rule refused a request, from the caller's own input only.
+ *
+ * The refusal used to read the same with and without consent, so a caller who
+ * had passed `allowPrivateNetwork` for a Docker Compose service name could not
+ * tell why it was still denied. The explanation is chosen from the consent flag
+ * and the hostname as written, never from what the hostname resolved to: with
+ * consent, a private answer and a failed lookup produce the same text, so the
+ * message cannot be used to map an internal network.
+ */
+function rejectionFor(url: URL, hostname: string, options: NetworkPolicyOptions): string {
+  const explicitLoopback = isExplicitLoopbackHostname(hostname);
+  if (!options.allowPrivateNetwork) {
+    return explicitLoopback
+      ? `${SAFE_REJECTION} Loopback targets need explicit consent: allowPrivateNetwork: true (CLI: --allow-private-network), for deliberate local development testing only.`
+      : SAFE_REJECTION;
+  }
+  if (explicitLoopback && options.privateNetworkOrigin && url.origin !== options.privateNetworkOrigin) {
+    return `${SAFE_REJECTION} allowPrivateNetwork approves only the loopback origin it was given, ${options.privateNetworkOrigin}; another local origin or port stays denied.`;
+  }
+  if (explicitLoopback) return SAFE_REJECTION;
+  return (
+    `${SAFE_REJECTION} allowPrivateNetwork extends it only to localhost, 127.0.0.0/8 and ::1 written in the URL itself. ` +
+    'Any other host stays denied when it resolves to a private, internal or loopback address, including a Docker Compose service name. ' +
+    'To reach a local service, publish its port on the host and use http://localhost:<port>.'
+  );
 }
 
 export function safeUrlForDisplay(input: string | URL): string {
@@ -123,7 +151,8 @@ async function resolveHost(
     if (resolver) return await resolver(hostname, { all: true, verbatim: true });
     return (await dnsLookup(hostname, { all: true, verbatim: true })) as Array<{ address: string; family: number }>;
   } catch {
-    throw new Error(SAFE_REJECTION);
+    // A failed lookup is refused like a private answer, with the same text.
+    return [];
   }
 }
 

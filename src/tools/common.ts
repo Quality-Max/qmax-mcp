@@ -62,6 +62,37 @@ export function browserType(name = 'chromium'): BrowserType {
   return chromium;
 }
 
+/** The Playwright version qmax-mcp itself resolved, which decides the browser build it needs. */
+export function resolvedPlaywrightVersion(): string | undefined {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require('playwright/package.json') as { version?: string }).version;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Replace Playwright's missing-browser banner with the command that fixes it.
+ *
+ * The banner says `npx playwright install`. Run in the user's project, that
+ * installs the browsers of the project's own Playwright, which matches the
+ * build qmax-mcp needs only by coincidence: qmax-mcp declares a range, so what
+ * `npx -y @qualitymax/qmax-mcp` resolves drifts from release to release. The
+ * fix is the install command for the exact version qmax-mcp resolved, which is
+ * the one fact the user had no easy way to find.
+ */
+export function missingBrowserError(error: unknown, browserName: string, version = resolvedPlaywrightVersion()): Error | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!/Executable doesn't exist/.test(message)) return undefined;
+  const pinned = version ? `playwright@${version}` : 'playwright';
+  return new Error(
+    `The ${browserName} build for Playwright ${version ?? '(unknown version)'}, which qmax-mcp uses, is not installed. ` +
+      `Install it with: npx -y ${pinned} install ${browserName}. ` +
+      'A plain `npx playwright install` installs the browsers for your project\'s own Playwright version, which may be a different build.'
+  );
+}
+
 export function browserContextOptions(viewport?: Viewport) {
   return { viewport: viewport ?? DEFAULT_VIEWPORT, serviceWorkers: 'block' as const };
 }
@@ -87,7 +118,13 @@ export async function withPage<T>(
   const storageStatePath = options.storageStatePath
     ? await resolveWorkspaceStorageStatePath(options.storageStatePath)
     : undefined;
-  const browser = await browserType(options.browser).launch({ headless: !options.headed });
+  const browserName = options.browser ?? 'chromium';
+  let browser: Browser;
+  try {
+    browser = await browserType(browserName).launch({ headless: !options.headed });
+  } catch (error) {
+    throw missingBrowserError(error, browserName) ?? error;
+  }
   try {
     let context: BrowserContext;
     try {

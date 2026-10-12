@@ -10,6 +10,22 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+### Fixed
+
+- A missing browser now fails with the command that installs the right build:
+  `npx -y playwright@<version> install chromium`, using the Playwright version
+  qmax-mcp resolved. It no longer shows Playwright's banner. The banner's
+  `npx playwright install`, run in a project, installs browsers for that
+  project's own Playwright version, which is the right build only by
+  coincidence ([#119]).
+- A network refusal now says which rule applied. A loopback URL without consent
+  is pointed at `allowPrivateNetwork` / `--allow-private-network`. With consent,
+  any host other than `localhost`, `127.0.0.0/8` or `::1` written in the URL
+  (a Docker Compose service name, say) is told that only those qualify and to
+  use the host-published port. The text depends only on the caller's input,
+  never on DNS results, so it reveals nothing about the internal network
+  ([#119]).
+
 ### Repository, not shipped in the package
 
 - One run of the release workflow now publishes npm, then the MCP Registry, then
@@ -395,3 +411,4 @@ account, API key, or hosted service required.
 [#83]: https://github.com/Quality-Max/qmax-mcp/issues/83
 [#95]: https://github.com/Quality-Max/qmax-mcp/pull/95
 [#132]: https://github.com/Quality-Max/qmax-mcp/issues/132
+[#119]: https://github.com/Quality-Max/qmax-mcp/issues/119

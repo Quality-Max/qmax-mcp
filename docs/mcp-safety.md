@@ -142,6 +142,14 @@ address ranges. Set `allowPrivateNetwork: true` only for deliberate local
 development testing; it permits only an exact `localhost` or loopback-literal origin (for example,
 `http://127.0.0.1:3000`), never RFC1918/ULA, link-local, or metadata
 destinations.
+
+A refusal says which rule applied, using only the caller's own input: the
+consent flag and the hostname as written. It never depends on what the hostname
+resolved to. A loopback target without consent is told about the opt-in. With
+consent, a non-loopback host is told that only explicit loopback names and
+literals qualify, and to publish the service's port on the host. With consent,
+a private answer, a loopback answer and a failed lookup all produce the same
+text, so the message cannot be used to learn which internal names resolve.
 The same policy validates the initial target, DNS answers at request time,
 browser HTTP and WebSocket subrequests, checked links, and every followed
 redirect. Browser DNS resolution is still performed by the browser after the
