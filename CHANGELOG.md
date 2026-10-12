@@ -10,6 +10,17 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.9.1 — 2026-10-12
+
+A correctness fix to `inspect_page`. Its `accessibilityTree` now comes from the
+browser and is not comparable with 0.9.0's: names, roles and the node list all
+differ, and the old output was wrong. For most controls, `interactive` locators
+and the testability score are unchanged. They change only for controls whose
+name 0.9.0 took from the wrong source (`aria-label` over `aria-labelledby`, or
+`title` over a button's text) or whose role it reported wrongly (search, number,
+range, image, file and `list` inputs, and multi-selects). For those controls,
+0.9.0's `getByRole` recommendation could match nothing.
+
 ### Changed
 
 - `inspect_page`'s `accessibilityTree` is now read from Chromium's computed
