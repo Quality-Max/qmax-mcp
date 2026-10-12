@@ -5,3 +5,7 @@ dist/
 /.qmax-mcp/
 /.baseline-test-*/
 /.storage-state-test-*/
+
+# Generated IndexNow ownership files (never commit credentials)
+/site/indexnow-key.txt
+/site/indexnow-deployment.txt
