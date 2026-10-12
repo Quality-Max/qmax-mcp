@@ -91,6 +91,219 @@ export function summarizeTestability(
   };
 }
 
+/** The subset of a CDP `Accessibility.AXNode` the tree is built from. */
+export type CdpAxNode = {
+  nodeId: string;
+  ignored?: boolean;
+  role?: { value?: unknown };
+  name?: {
+    value?: unknown;
+    sources?: Array<{
+      type?: string;
+      attribute?: string;
+      nativeSource?: string;
+      value?: { value?: unknown };
+      superseded?: boolean;
+    }>;
+  };
+  properties?: Array<{ name: string; value?: { value?: unknown } }>;
+  childIds?: string[];
+  backendDOMNodeId?: number;
+};
+
+export type AccessibilityTreeNode = {
+  role: string;
+  name: string;
+  nameSource?: string;
+  /** Present and true when a control that should carry a name has none. */
+  unnamed?: true;
+  depth: number;
+  tag?: string;
+  level?: number;
+  checked?: string;
+  disabled?: true;
+  expanded?: boolean;
+};
+
+const MAX_ACCESSIBILITY_NODES = 300;
+
+// ARIA roles for layout wrappers and running text, including inline formatting.
+// They carry no semantics a test addresses — the text they hold already appears
+// in the name of the control or landmark that contains it — so listing them
+// would spend the node budget on noise before the page's controls are reached.
+const STRUCTURAL_ROLES = new Set([
+  'generic',
+  'none',
+  'presentation',
+  'paragraph',
+  'emphasis',
+  'strong',
+  'code',
+  'mark',
+  'time',
+  'subscript',
+  'superscript',
+  'deletion',
+  'insertion',
+]);
+
+// CDP reports Chromium's internal roles in PascalCase (`StaticText`, `Date`,
+// `ColorWell`) alongside ARIA ones. A role in this tree has to work in
+// `getByRole`, so the internal roles with an ARIA equivalent are translated to
+// the role Playwright resolves for the same element, and the rest — text runs,
+// `Canvas`, `Abbr` and the like — are left out, as Playwright's own snapshot
+// leaves them out.
+const ARIA_ROLE_FOR_CHROMIUM_ROLE: Record<string, string> = {
+  image: 'img',
+  Iframe: 'iframe',
+  Date: 'textbox',
+  DateTime: 'textbox',
+  InputTime: 'textbox',
+  ColorWell: 'textbox',
+};
+
+function ariaRole(chromiumRole: string): string | undefined {
+  const mapped = ARIA_ROLE_FOR_CHROMIUM_ROLE[chromiumRole];
+  if (mapped) return mapped;
+  return /^[a-z]/.test(chromiumRole) ? chromiumRole : undefined;
+}
+
+// Roles a user operates or must be able to identify. A nameless one of these is
+// exactly what an accessibility tree should surface, so it is flagged rather
+// than dropped.
+const ROLES_REQUIRING_A_NAME = new Set([
+  'button',
+  'link',
+  'textbox',
+  'searchbox',
+  'checkbox',
+  'radio',
+  'switch',
+  'combobox',
+  'listbox',
+  'slider',
+  'spinbutton',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'tab',
+  'option',
+  'treeitem',
+  'img',
+  'dialog',
+  'alertdialog',
+]);
+
+/**
+ * Name a CDP name source in the vocabulary the `interactive` list already uses,
+ * so one control reports the same `nameSource` in both places.
+ */
+function axNameSource(source: NonNullable<NonNullable<CdpAxNode['name']>['sources']>[number]): string {
+  if (source.attribute === 'aria-labelledby' || source.attribute === 'aria-label') return source.attribute;
+  if (source.type === 'contents') return 'text';
+  if (source.type === 'placeholder' || source.attribute === 'placeholder') return 'placeholder';
+  if (source.nativeSource === 'labelfor' || source.nativeSource === 'labelwrapped' || source.nativeSource === 'label') return 'label';
+  return source.attribute || source.nativeSource || source.type || 'unknown';
+}
+
+/**
+ * Flatten Chromium's computed accessibility tree into document order.
+ *
+ * The tree used to be a DOM walk that took `role` from the tag name and `name`
+ * from `aria-label || textContent || placeholder`. That disagreed with the
+ * browser on all three things an agent reads it for: a labelled field was named
+ * by its placeholder, `role` held `input` where `getByRole` needs `textbox`, and
+ * a control with no name was dropped — the one case the tree most needs to
+ * show. Reading the browser's own computation removes the second implementation
+ * rather than chasing it.
+ *
+ * Ignored nodes are walked through, not listed: their descendants can still be
+ * exposed (a `display: contents` wrapper, say). `depth` counts only listed
+ * ancestors, so it describes the tree the caller sees.
+ */
+export function flattenAccessibilityTree(
+  nodes: CdpAxNode[],
+  tagFor: (backendNodeId: number) => string | undefined = () => undefined,
+  limit = MAX_ACCESSIBILITY_NODES
+): AccessibilityTreeNode[] {
+  const byId = new Map(nodes.map((node) => [node.nodeId, node]));
+  const childIds = new Set(nodes.flatMap((node) => node.childIds ?? []));
+  const roots = nodes.filter((node) => !childIds.has(node.nodeId));
+  const result: AccessibilityTreeNode[] = [];
+  const visited = new Set<string>();
+
+  const visit = (node: CdpAxNode, depth: number) => {
+    if (result.length >= limit || visited.has(node.nodeId)) return;
+    visited.add(node.nodeId);
+
+    const role = typeof node.role?.value === 'string' ? ariaRole(node.role.value) : undefined;
+    const name = typeof node.name?.value === 'string' ? node.name.value.replace(/\s+/g, ' ').trim() : '';
+    const listed = !node.ignored && role !== undefined && !STRUCTURAL_ROLES.has(role);
+
+    if (listed) {
+      const property = (key: string) => node.properties?.find((entry) => entry.name === key)?.value?.value;
+      const winning = name ? node.name?.sources?.find((source) => !source.superseded && source.value?.value) : undefined;
+      const level = property('level');
+      const checked = property('checked');
+      const expanded = property('expanded');
+      const entry: AccessibilityTreeNode = {
+        role,
+        name: name.slice(0, 160),
+        nameSource: winning ? axNameSource(winning) : undefined,
+        unnamed: !name && ROLES_REQUIRING_A_NAME.has(role) ? true : undefined,
+        depth,
+        tag: node.backendDOMNodeId === undefined ? undefined : tagFor(node.backendDOMNodeId),
+        level: typeof level === 'number' ? level : undefined,
+        checked: checked === undefined ? undefined : String(checked),
+        disabled: property('disabled') === true ? true : undefined,
+        expanded: typeof expanded === 'boolean' ? expanded : undefined,
+      };
+      result.push(
+        Object.fromEntries(Object.entries(entry).filter(([, value]) => value !== undefined)) as AccessibilityTreeNode
+      );
+    }
+
+    for (const childId of node.childIds ?? []) {
+      const child = byId.get(childId);
+      if (child) visit(child, listed ? depth + 1 : depth);
+    }
+  };
+
+  for (const root of roots) visit(root, 0);
+  return result;
+}
+
+type CdpDomNode = { backendNodeId: number; nodeName: string; children?: CdpDomNode[]; shadowRoots?: CdpDomNode[] };
+
+/**
+ * Read the accessibility tree Chromium computed for the page, through CDP.
+ *
+ * `inspectPage` always runs in Chromium, but CDP is still an engine-specific
+ * channel, so a failure is reported as a warning rather than failing the whole
+ * inspection that the rest of the report does not depend on.
+ */
+async function readAccessibilityTree(page: Page): Promise<AccessibilityTreeNode[]> {
+  const session = await page.context().newCDPSession(page);
+  try {
+    const { nodes } = (await session.send('Accessibility.getFullAXTree')) as { nodes: CdpAxNode[] };
+    // One document fetch maps every backend node to its tag, rather than a
+    // describeNode round trip per listed node.
+    const { root } = (await session.send('DOM.getDocument', { depth: -1, pierce: true })) as { root: CdpDomNode };
+    const tags = new Map<number, string>();
+    const collect = (node: CdpDomNode) => {
+      tags.set(node.backendNodeId, node.nodeName.toLowerCase());
+      for (const child of [...(node.children ?? []), ...(node.shadowRoots ?? [])]) collect(child);
+    };
+    collect(root);
+    return flattenAccessibilityTree(nodes, (id) => {
+      const tag = tags.get(id);
+      return tag && !tag.startsWith('#') ? tag : undefined;
+    });
+  } finally {
+    await session.detach().catch(() => undefined);
+  }
+}
+
 export async function inspectPage(args: InspectPageArgs) {
   const url = validateHttpUrl(args.url);
 
@@ -109,10 +322,12 @@ export async function inspectPage(args: InspectPageArgs) {
         // it is worth, so the source is carried rather than discarded. A name
         // read off a placeholder and one read off an associated label are not
         // interchangeable: the first breaks on a copy edit or a translation.
+        //
+        // The order follows the browser's accessible-name computation, so a
+        // control is named the same here as in `accessibilityTree`:
+        // aria-labelledby outranks aria-label, and a button's content outranks
+        // its title.
         const namedBy = (el: Element): { name: string; source: string } | null => {
-          const aria = text(el.getAttribute('aria-label'));
-          if (aria) return { name: aria, source: 'aria-label' };
-
           const labelledBy = el.getAttribute('aria-labelledby');
           if (labelledBy) {
             const referenced = labelledBy
@@ -123,6 +338,9 @@ export async function inspectPage(args: InspectPageArgs) {
             if (joined) return { name: joined, source: 'aria-labelledby' };
           }
 
+          const aria = text(el.getAttribute('aria-label'));
+          if (aria) return { name: aria, source: 'aria-label' };
+
           // `labels` covers both `for=`/`id` association and a wrapping label;
           // closest() is the fallback for elements that do not expose it.
           const labelled = (el as HTMLInputElement).labels;
@@ -130,11 +348,11 @@ export async function inspectPage(args: InspectPageArgs) {
           const labelText = text(labels.map((label) => label.textContent).join(' ')) || text(el.closest('label')?.textContent);
           if (labelText) return { name: labelText, source: 'label' };
 
-          const title = text(el.getAttribute('title'));
-          if (title) return { name: title, source: 'title' };
-
           const own = text(el.textContent);
           if (own) return { name: own, source: 'text' };
+
+          const title = text(el.getAttribute('title'));
+          if (title) return { name: title, source: 'title' };
 
           const placeholder = text(el.getAttribute('placeholder'));
           if (placeholder) return { name: placeholder, source: 'placeholder' };
@@ -219,15 +437,24 @@ export async function inspectPage(args: InspectPageArgs) {
           const tag = el.tagName.toLowerCase();
           if (tag === 'button') return 'button';
           if (tag === 'a') return 'link';
+          // The role Playwright resolves for the element: a getByRole built on
+          // `textbox` for an <input type="search"> matches nothing.
           if (tag === 'input') {
             const type = (el.getAttribute('type') || 'text').toLowerCase();
-            if (['button', 'submit', 'reset'].includes(type)) return 'button';
+            if (['button', 'submit', 'reset', 'image', 'file'].includes(type)) return 'button';
             if (type === 'checkbox') return 'checkbox';
             if (type === 'radio') return 'radio';
+            if (type === 'number') return 'spinbutton';
+            if (type === 'range') return 'slider';
+            if (el.hasAttribute('list') && ['text', 'search', 'email', 'tel', 'url'].includes(type)) return 'combobox';
+            if (type === 'search') return 'searchbox';
             return 'textbox';
           }
           if (tag === 'textarea') return 'textbox';
-          if (tag === 'select') return 'combobox';
+          if (tag === 'select') {
+            const select = el as HTMLSelectElement;
+            return select.multiple || select.size > 1 ? 'listbox' : 'combobox';
+          }
           return tag;
         };
 
@@ -337,20 +564,15 @@ export async function inspectPage(args: InspectPageArgs) {
       { includeForms: args.includeForms ?? true }
     );
 
-    const accessibilityTree =
-      args.includeAccessibilityTree ?? true
-        ? await page.evaluate(() => {
-            const nodes = Array.from(document.querySelectorAll('main, nav, header, footer, h1, h2, h3, button, a[href], input, textarea, select, [role]'))
-              .slice(0, 300)
-              .map((el) => ({
-                role: el.getAttribute('role') || el.tagName.toLowerCase(),
-                name: (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || '').replace(/\s+/g, ' ').trim().slice(0, 160),
-                tag: el.tagName.toLowerCase(),
-              }))
-              .filter((node) => node.name || ['main', 'nav', 'header', 'footer'].includes(node.role));
-            return nodes;
-          })
-        : undefined;
+    let accessibilityTree: AccessibilityTreeNode[] | undefined;
+    let accessibilityTreeWarning: string | undefined;
+    if (args.includeAccessibilityTree ?? true) {
+      try {
+        accessibilityTree = await readAccessibilityTree(page);
+      } catch (error) {
+        accessibilityTreeWarning = `The accessibility tree could not be read from the browser: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
 
     // Reported so an empty snapshot is self-describing. Without these, "no
     // interactive elements" is indistinguishable from "snapshotted too early",
@@ -363,6 +585,7 @@ export async function inspectPage(args: InspectPageArgs) {
       { headings: snapshot.headings.length, interactive: snapshot.interactive.length, forms: snapshot.forms.length },
       diagnostics.domNodeCount
     );
+    if (accessibilityTreeWarning) warnings.push(accessibilityTreeWarning);
 
     return redactSensitiveData({
       ...snapshot,
