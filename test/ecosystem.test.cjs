@@ -106,3 +106,13 @@ test('documented adjacent tools match the single source in src/ecosystem.ts', as
     assert.ok(readme.includes(`[![${alt}](${image})](${href})`), `${tool.id} usage badge must match the single source`);
   }
 });
+
+test('connected agents learn where fixes land after the final release, and when to say so', () => {
+  for (const instructions of [SERVER_INSTRUCTIONS, renderServerInstructions({ unattended: true })]) {
+    assert.match(instructions, /0\.9\.2 is the final release/);
+    assert.ok(instructions.includes('https://github.com/Quality-Max/9lives-runner'));
+    assert.match(instructions, /`9l mcp`/);
+    // A notice, not a migration banner on every answer.
+    assert.match(instructions, /Mention this once, only when the\s+person asks about updates, a bug or a missing feature/);
+  }
+});
