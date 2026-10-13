@@ -172,3 +172,52 @@ test('the accessibility tree walks through ignored and structural nodes and repo
   ]);
   assert.equal(flattenAccessibilityTree(nodes, undefined, 1).length, 1, 'the node budget is respected');
 });
+
+test('only an accessible name is quoted; a name attribute is shown as an attribute', () => {
+  const report = renderInspectReport(
+    inspectResult({
+      interactive: [
+        { tag: 'input', role: 'textbox', name: 'E-mail address', nameSource: 'label', stability: 'stable', selector: '#email' },
+        {
+          tag: 'input',
+          type: 'checkbox',
+          role: 'checkbox',
+          name: 'rememberMe',
+          nameSource: 'name-attribute',
+          accessibleName: '',
+          stability: 'stable',
+          selector: '#remember',
+          recommendedLocator: "page.locator('#remember')",
+        },
+        { tag: 'input', type: 'radio', role: 'radio', name: '', stability: 'none', selector: 'form input[type="radio"]' },
+        { tag: 'div', role: 'div', name: '', stability: 'stable', selector: '[data-testid="panel"]' },
+        { tag: 'div', role: 'list', name: '', accessibleName: '', stability: 'stable', selector: '[data-testid="items"]' },
+        // The browser's computed name wins over the DOM estimate.
+        { tag: 'select', role: 'combobox', name: 'Large', nameSource: 'text', accessibleName: '', stability: 'stable', selector: '#size' },
+      ],
+      testability: { controls: 6, stable: 5, acceptable: 0, fragile: 0, none: 1, score: 83 },
+    })
+  );
+
+  assert.match(report, /\| textbox “E-mail address” \|/);
+  // #133: the name attribute was quoted exactly like the label above it.
+  assert.doesNotMatch(report, /“rememberMe”/);
+  assert.match(report, /\| checkbox \[name=rememberMe\] \(no accessible name\) \|/);
+  assert.match(report, /\| radio `form input\[type="radio"\]` \(no accessible name\) \|/);
+  // A wrapper or a structural role is not a control that needs a name.
+  assert.match(report, /\| div `\[data-testid="panel"\]` \|/);
+  assert.match(report, /\| list `\[data-testid="items"\]` \|/);
+  assert.match(report, /\| combobox `#size` \(no accessible name\) \|/);
+  assert.doesNotMatch(report, /“Large”/);
+});
+
+test('the inaccessible-handle caveat needs a stable handle on a role that requires a name', () => {
+  const { inaccessibleHandleNote } = require('../dist/tools/inspect-page.js');
+  const base = { stability: 'stable', accessibleName: '', role: 'checkbox', tag: 'input', type: 'checkbox' };
+  assert.match(inaccessibleHandleNote(base), /Form control has no accessible label/);
+  assert.doesNotMatch(inaccessibleHandleNote({ ...base, role: 'button', tag: 'button', type: undefined }), /scan/);
+  assert.equal(inaccessibleHandleNote({ ...base, accessibleName: 'Remember me' }), undefined);
+  assert.equal(inaccessibleHandleNote({ ...base, stability: 'acceptable' }), undefined);
+  assert.equal(inaccessibleHandleNote({ ...base, role: 'list', tag: 'div' }), undefined);
+  assert.equal(inaccessibleHandleNote({ ...base, type: 'hidden' }), undefined);
+});
