@@ -28,8 +28,10 @@ entry says what changes for a connected agent.
 - `inspect` no longer presents a `name` attribute as if it were an accessible
   name. The Markdown report quotes a control's name only when it is an
   accessible name; otherwise the control reads `checkbox [name=rememberMe] (no
-  accessible name)`. Each `interactive` entry gains `accessibleName`, which
-  matches the accessibility tree. A control found by a test id or an id but with
+  accessible name)`. Each `interactive` entry gains `accessibleName`: the
+  browser's computed name, the same one its accessibility tree node carries.
+  Locator names follow the same rules. A `<select>`'s option text is no longer
+  taken as its name, and an `<input type="submit">` is named by its value. A control found by a test id or an id but with
   no accessible name keeps its 🟢 stable verdict and now carries an "easy to
   locate, not accessible" caveat. For a form field, the caveat names the
   matching `scan` finding. Before this, `inspect` rated an unlabelled checkbox

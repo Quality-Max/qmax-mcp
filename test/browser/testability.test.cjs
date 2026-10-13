@@ -173,3 +173,33 @@ test('a hidden input or a test-id wrapper is not flagged as inaccessible', async
   );
   for (const item of result.interactive) assert.equal(item.locatorNote, undefined, JSON.stringify(item));
 });
+
+test('accessible names follow the browser for selects, input buttons and structural roles', async () => {
+  // From the review of #139: a <select>'s option text is not its name, an
+  // <input type="submit"> is named by its value, and an unnamed list is fine.
+  const result = await inspectFixture(`
+    <form>
+      <select id="size"><option>Large</option></select>
+      <input id="save" type="submit" value="Save">
+      <input type="submit" value="Send now">
+      <div role="list" data-testid="items"><div role="listitem">a</div></div>
+    </form>
+  `);
+
+  const size = control(result, (item) => item.tag === 'select');
+  assert.equal(size.accessibleName, '', 'Chromium leaves the combobox unnamed');
+  assert.notEqual(size.name, 'Large', 'option text is not used as the name');
+  assert.match(size.locatorNote, /Easy to locate, not accessible/);
+
+  const save = control(result, (item) => item.selector === '#save');
+  assert.equal(save.accessibleName, 'Save');
+  assert.equal(save.locatorNote, undefined);
+
+  const send = control(result, (item) => item.accessibleName === 'Send now');
+  assert.equal(send.nameSource, 'value');
+  assert.equal(send.recommendedLocator, 'page.getByRole(\'button\', { name: "Send now" })');
+
+  const list = control(result, (item) => item.testId === 'items');
+  assert.equal(list.role, 'list');
+  assert.equal(list.locatorNote, undefined, 'an unnamed list is not flagged');
+});
