@@ -10,6 +10,23 @@ entry says what changes for a connected agent.
 
 ## Unreleased
 
+## 0.9.2 — 2026-10-13
+
+The final release of `@qualitymax/qmax-mcp`. Its checks now ship in 9lives:
+`9l scan` and `9l inspect` from a shell, and `9l mcp` for coding agents
+([9lives-runner](https://github.com/Quality-Max/9lives-runner), from v0.4.0).
+This package stays installable but receives no further fixes; new work and the
+issues that were open here moved to 9lives-runner. Results are comparable with
+0.9.1, except for the `inspect` changes listed under Fixed.
+
+### Changed
+
+- The README, package description, MCP Registry entry and Smithery metadata
+  name the move to 9lives, and the website links point to 9lives.run instead of
+  qmax.run, which no longer hosts this project. Connected agents get one short
+  instruction naming `9l mcp`, for use only when a person asks about updates, a
+  bug or a missing feature.
+
 ### Fixed
 
 - A missing browser now fails with the command that installs the right build:
@@ -31,12 +48,12 @@ entry says what changes for a connected agent.
   accessible name)`. Each `interactive` entry gains `accessibleName`: the
   browser's computed name, the same one its accessibility tree node carries.
   Locator names follow the same rules. A `<select>`'s option text is no longer
-  taken as its name, and an `<input type="submit">` is named by its value. A control found by a test id or an id but with
-  no accessible name keeps its 🟢 stable verdict and now carries an "easy to
-  locate, not accessible" caveat. For a form field, the caveat names the
-  matching `scan` finding. Before this, `inspect` rated an unlabelled checkbox
-  as named and stable, while `scan` flagged the same control as a high-severity
-  missing label ([#133]).
+  taken as its name, and an `<input type="submit">` is named by its value. A
+  control found by a test id or an id but with no accessible name keeps its 🟢
+  stable verdict and now carries an "easy to locate, not accessible" caveat. For
+  a form field, the caveat names the matching `scan` finding. Before this,
+  `inspect` rated an unlabelled checkbox as named and stable, while `scan`
+  flagged the same control as a high-severity missing label ([#133]).
 
 ### Repository, not shipped in the package
 

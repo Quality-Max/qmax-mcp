@@ -1,10 +1,10 @@
 name: qmax-mcp
 displayName: QualityMax QA MCP
 description: >
-  Local-first QA MCP server: scan URLs, inspect pages, generate Playwright repros,
-  and run tests locally.
-version: 0.9.1
-homepage: https://qmax.run
+  Final release: these checks moved to 9lives (`9l mcp`). Local-first QA MCP
+  server: scan URLs, inspect pages, generate Playwright repros, and run tests locally.
+version: 0.9.2
+homepage: https://9lives.run/#page-checks
 logo: https://app.qualitymax.io/static/img/logo.png
 
 startCommand:

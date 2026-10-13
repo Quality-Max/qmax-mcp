@@ -55,7 +55,7 @@ test('launch kit keeps reproducible proof, safety, comparison, and disclosure as
   assert.match(checklist, /SECURITY\.md/);
 });
 
-test('the qmax.run site is deployable and points back to the canonical package', async () => {
+test('the qmax.run site is deployable, and package metadata points to 9lives', async () => {
   await Promise.all([
     access(path.join(root, 'site', 'favicon.svg')),
     access(path.join(root, 'site', 'social-card.png')),
@@ -70,9 +70,11 @@ test('the qmax.run site is deployable and points back to the canonical package',
     readFile(path.join(root, 'smithery.yaml'), 'utf8'),
   ]);
 
-  assert.equal(packageJson.homepage, 'https://qmax.run');
-  assert.equal(manifest.websiteUrl, 'https://qmax.run');
-  assert.match(smithery, /^homepage: https:\/\/qmax\.run$/m);
+  // 0.9.2, the final release, points package metadata at 9lives: qmax.run no
+  // longer hosts this project. The site files below are kept as they were.
+  assert.equal(packageJson.homepage, 'https://9lives.run/#page-checks');
+  assert.equal(manifest.websiteUrl, 'https://9lives.run/#page-checks');
+  assert.match(smithery, /^homepage: https:\/\/9lives\.run\/#page-checks$/m);
   assert.match(site, /<link rel="canonical" href="https:\/\/qmax\.run\/"/);
   assert.match(site, /<meta property="og:image" content="https:\/\/qmax\.run\/social-card\.png"/);
   assert.match(site, /<meta property="og:image:width" content="1200"/);
