@@ -98,7 +98,8 @@ test('documented adjacent tools match the single source in src/ecosystem.ts', as
   }
 
   const readme = await readFile(path.join(root, 'README.md'), 'utf8');
-  assert.doesNotMatch(readme.slice(0, 1500).toLowerCase(), /9lives|grader|skills\.sh/);
+  // The opening may name 9lives only for the move notice, never to promote the other neighbors.
+  assert.doesNotMatch(readme.slice(0, 1500).toLowerCase(), /grader|skills\.sh/);
   assert.match(readme, /does not install, run, bundle, or proxy any of them/);
   for (const tool of NEIGHBOR_TOOLS) {
     const { alt, image, href } = tool.usageBadge;

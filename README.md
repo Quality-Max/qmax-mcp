@@ -4,11 +4,14 @@
 [![npm downloads](https://img.shields.io/npm/dm/@qualitymax/qmax-mcp)](https://www.npmjs.com/package/@qualitymax/qmax-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2022.13.0-brightgreen)](https://nodejs.org/)
-[![Website](https://img.shields.io/badge/Website-qmax.run-baff29)](https://qmax.run)
+[![Website](https://img.shields.io/badge/Website-9lives.run-baff29)](https://9lives.run/#page-checks)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/kbEC28D4)
 [![Listed in awesome-testing](https://img.shields.io/badge/awesome--testing-listed-ff69b4)](https://github.com/TheJambo/awesome-testing#ui--end-to-end-testing)
 [![Listed in awesome-mcp-servers](https://img.shields.io/badge/awesome--mcp--servers-listed-ff69b4)](https://github.com/TensorBlock/awesome-mcp-servers/blob/main/docs/browser-automation--web-scraping.md)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/qualitymax)
+
+> [!IMPORTANT]
+> **These checks now ship in 9lives.** From 9lives v0.4.0, `9l scan` and `9l inspect` run the same nine page checks and locator inspection, and `9l mcp` gives coding agents `scan_url`, `inspect_page` and `generate_playwright_repro` next to its run, heal, assess and confirm tools: one local server, no account. qmax.run no longer hosts this project; see [9lives.run](https://9lives.run/#page-checks) and [Check the page you changed](https://github.com/Quality-Max/9lives-runner#check-the-page-you-changed). New features and fixes land in [9lives-runner](https://github.com/Quality-Max/9lives-runner); open issues moved there. This package stays installable while its retirement is planned ([9lives-runner#100](https://github.com/Quality-Max/9lives-runner/issues/100)).
 
 Give a coding agent independent QA evidence before it declares a web change done: scan the page, inspect the UI, generate a focused Playwright repro, then review the execution result.
 

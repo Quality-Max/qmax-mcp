@@ -7,12 +7,14 @@ const root = path.resolve(__dirname, '..');
 
 test('README leads with the agent-first local QA promise and canonical command', async () => {
   const readme = await readFile(path.join(root, 'README.md'), 'utf8');
-  const opening = readme.slice(0, 1500).toLowerCase();
+  const opening = readme.slice(0, 2500).toLowerCase();
 
   assert.match(readme, /npx -y @qualitymax\/qmax-mcp/);
   assert.match(opening, /independent qa evidence before it declares a web change done/);
   assert.match(opening, /require no qualitymax account/);
-  assert.doesNotMatch(opening, /9lives/);
+  // The checks moved to 9lives; the opening says so before anything else.
+  assert.match(opening, /these checks now ship in 9lives/);
+  assert.match(opening, /github\.com\/quality-max\/9lives-runner#check-the-page-you-changed/);
   for (const tool of ['scan_url', 'inspect_page', 'generate_playwright_repro', 'run_playwright_test']) {
     assert.match(readme, new RegExp(`\\\`${tool}\\\``));
   }
