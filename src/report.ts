@@ -1,4 +1,4 @@
-import { type Finding, type FindingDelta, type Severity, SEVERITY_RANK, gradeFromScore } from './tools/common';
+import { type Finding, type FindingDelta, ROLES_REQUIRING_A_NAME, type Severity, SEVERITY_RANK, gradeFromScore } from './tools/common';
 import { formatBytes } from './tools/checks/signals';
 import type { ScanMetrics } from './tools/scan-url';
 
@@ -316,6 +316,8 @@ export type InspectResult = {
     tag: string;
     role?: string | null;
     name?: string;
+    nameSource?: string;
+    accessibleName?: string;
     type?: string;
     stability?: string;
     selector?: string;
@@ -365,11 +367,28 @@ function codeSpan(value: string): string {
   return `${delimiter}${padded}${delimiter}`;
 }
 
-/** A short human label for a control: what it is, then what it is called. */
+/**
+ * A short human label for a control: what it is, then what it is called.
+ *
+ * Only an accessible name goes in quotes. A name read off the `name` attribute
+ * used to be quoted exactly like a label, so an unlabelled checkbox read as
+ * named in the same report where `scan` flagged it as having no label.
+ */
 function controlLabel(control: InspectResult['interactive'][number]): string {
   const kind = control.role || (control.type ? `${control.tag}[${control.type}]` : control.tag);
-  if (control.name) return `${kind} “${control.name}”`;
-  return control.selector ? `${kind} ${codeSpan(control.selector)}` : kind;
+  const accessibleName =
+    control.accessibleName ?? (control.nameSource === 'name-attribute' ? '' : (control.name ?? ''));
+  if (accessibleName) return `${kind} “${accessibleName}”`;
+  const handle =
+    control.nameSource === 'name-attribute' && control.name
+      ? `[name=${control.name}]`
+      : control.selector
+        ? codeSpan(control.selector)
+        : '';
+  const label = handle ? `${kind} ${handle}` : kind;
+  // Only a role that needs a name is missing one: an unnamed list, group or
+  // test-id wrapper is not a defect, and saying so would read as one.
+  return control.role && ROLES_REQUIRING_A_NAME.has(control.role) ? `${label} (no accessible name)` : label;
 }
 
 /**

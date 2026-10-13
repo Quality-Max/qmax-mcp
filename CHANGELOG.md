@@ -25,6 +25,18 @@ entry says what changes for a connected agent.
   use the host-published port. The text depends only on the caller's input,
   never on DNS results, so it reveals nothing about the internal network
   ([#119]).
+- `inspect` no longer presents a `name` attribute as if it were an accessible
+  name. The Markdown report quotes a control's name only when it is an
+  accessible name; otherwise the control reads `checkbox [name=rememberMe] (no
+  accessible name)`. Each `interactive` entry gains `accessibleName`: the
+  browser's computed name, the same one its accessibility tree node carries.
+  Locator names follow the same rules. A `<select>`'s option text is no longer
+  taken as its name, and an `<input type="submit">` is named by its value. A control found by a test id or an id but with
+  no accessible name keeps its 🟢 stable verdict and now carries an "easy to
+  locate, not accessible" caveat. For a form field, the caveat names the
+  matching `scan` finding. Before this, `inspect` rated an unlabelled checkbox
+  as named and stable, while `scan` flagged the same control as a high-severity
+  missing label ([#133]).
 
 ### Repository, not shipped in the package
 
@@ -412,3 +424,4 @@ account, API key, or hosted service required.
 [#95]: https://github.com/Quality-Max/qmax-mcp/pull/95
 [#132]: https://github.com/Quality-Max/qmax-mcp/issues/132
 [#119]: https://github.com/Quality-Max/qmax-mcp/issues/119
+[#133]: https://github.com/Quality-Max/qmax-mcp/issues/133

@@ -133,3 +133,73 @@ test('the page-level score counts only stable handles', async () => {
   assert.equal(result.testability.none, 1);
   assert.equal(result.testability.score, 25);
 });
+
+test('a stable handle on a control without an accessible name says it is not accessible', async () => {
+  // The #133 repro: inspect called this checkbox stable and named "rememberMe",
+  // while scan flagged the same control as having no accessible label.
+  const result = await inspectFixture(`
+    <form>
+      <label for="email">E-mail address</label>
+      <input id="email" name="email" type="email">
+      <input id="remember" name="rememberMe" type="checkbox">
+      <span>Keep me signed in</span>
+      <button id="go" type="submit">Sign in</button>
+    </form>
+  `);
+
+  const remember = control(result, (item) => item.type === 'checkbox');
+  assert.equal(remember.stability, 'stable', 'an id is still a durable handle');
+  assert.equal(remember.recommendedLocator, "page.locator('#remember')");
+  assert.equal(remember.accessibleName, '');
+  assert.match(remember.locatorNote, /Easy to locate, not accessible/);
+  assert.match(remember.locatorNote, /Form control has no accessible label/);
+
+  // The tree, the interactive list and scan now say the same thing.
+  const node = result.accessibilityTree.find((item) => item.role === 'checkbox');
+  assert.equal(node.unnamed, true);
+
+  // Named controls with the same kind of handle carry no caveat.
+  const email = control(result, (item) => item.type === 'email');
+  assert.equal(email.accessibleName, 'E-mail address');
+  assert.equal(email.locatorNote, undefined);
+  const go = control(result, (item) => item.tag === 'button');
+  assert.equal(go.accessibleName, 'Sign in');
+  assert.equal(go.locatorNote, undefined);
+});
+
+test('a hidden input or a test-id wrapper is not flagged as inaccessible', async () => {
+  const result = await inspectFixture(
+    '<form><input type="hidden" id="csrf" name="csrf"><div data-testid="panel"></div></form>'
+  );
+  for (const item of result.interactive) assert.equal(item.locatorNote, undefined, JSON.stringify(item));
+});
+
+test('accessible names follow the browser for selects, input buttons and structural roles', async () => {
+  // From the review of #139: a <select>'s option text is not its name, an
+  // <input type="submit"> is named by its value, and an unnamed list is fine.
+  const result = await inspectFixture(`
+    <form>
+      <select id="size"><option>Large</option></select>
+      <input id="save" type="submit" value="Save">
+      <input type="submit" value="Send now">
+      <div role="list" data-testid="items"><div role="listitem">a</div></div>
+    </form>
+  `);
+
+  const size = control(result, (item) => item.tag === 'select');
+  assert.equal(size.accessibleName, '', 'Chromium leaves the combobox unnamed');
+  assert.notEqual(size.name, 'Large', 'option text is not used as the name');
+  assert.match(size.locatorNote, /Easy to locate, not accessible/);
+
+  const save = control(result, (item) => item.selector === '#save');
+  assert.equal(save.accessibleName, 'Save');
+  assert.equal(save.locatorNote, undefined);
+
+  const send = control(result, (item) => item.accessibleName === 'Send now');
+  assert.equal(send.nameSource, 'value');
+  assert.equal(send.recommendedLocator, 'page.getByRole(\'button\', { name: "Send now" })');
+
+  const list = control(result, (item) => item.testId === 'items');
+  assert.equal(list.role, 'list');
+  assert.equal(list.locatorNote, undefined, 'an unnamed list is not flagged');
+});

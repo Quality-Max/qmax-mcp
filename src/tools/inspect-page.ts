@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { cssEscape, type Viewport, validateHttpUrl, withPage } from './common';
+import { cssEscape, ROLES_REQUIRING_A_NAME, type Viewport, validateHttpUrl, withPage } from './common';
 import { safeUrlForDisplay } from './network-policy';
 import { redactSensitiveData } from './run-playwright-test';
 
@@ -168,31 +168,6 @@ function ariaRole(chromiumRole: string): string | undefined {
   return /^[a-z]/.test(chromiumRole) ? chromiumRole : undefined;
 }
 
-// Roles a user operates or must be able to identify. A nameless one of these is
-// exactly what an accessibility tree should surface, so it is flagged rather
-// than dropped.
-const ROLES_REQUIRING_A_NAME = new Set([
-  'button',
-  'link',
-  'textbox',
-  'searchbox',
-  'checkbox',
-  'radio',
-  'switch',
-  'combobox',
-  'listbox',
-  'slider',
-  'spinbutton',
-  'menuitem',
-  'menuitemcheckbox',
-  'menuitemradio',
-  'tab',
-  'option',
-  'treeitem',
-  'img',
-  'dialog',
-  'alertdialog',
-]);
 
 /**
  * Name a CDP name source in the vocabulary the `interactive` list already uses,
@@ -273,35 +248,108 @@ export function flattenAccessibilityTree(
   return result;
 }
 
-type CdpDomNode = { backendNodeId: number; nodeName: string; children?: CdpDomNode[]; shadowRoots?: CdpDomNode[] };
+type CdpDomNode = {
+  nodeId: number;
+  backendNodeId: number;
+  nodeName: string;
+  children?: CdpDomNode[];
+  shadowRoots?: CdpDomNode[];
+};
+
+/** The elements `interactive` reports, in document order. */
+const INTERACTIVE_SELECTOR = 'button, a[href], input, textarea, select, [role], [data-testid], [data-test], [data-qa]';
+const MAX_INTERACTIVE = 250;
+
+type BrowserAccessibility = {
+  tree: AccessibilityTreeNode[];
+  /** Chromium's computed name for each `INTERACTIVE_SELECTOR` match, by index; undefined where unknown. */
+  interactiveNames: Array<{ tag: string; name: string } | undefined>;
+};
 
 /**
- * Read the accessibility tree Chromium computed for the page, through CDP.
+ * Read the accessibility tree Chromium computed for the page, through CDP, and
+ * the computed name of every element the `interactive` list reports.
+ *
+ * The names come from the same tree, so a control's `accessibleName` and its
+ * tree node cannot disagree. Estimating the name in the page instead got the
+ * cases where the accessible-name rules depend on the element wrong: a
+ * <select>'s option text is not its name, and an <input type="submit"> is
+ * named by its value.
  *
  * `inspectPage` always runs in Chromium, but CDP is still an engine-specific
  * channel, so a failure is reported as a warning rather than failing the whole
  * inspection that the rest of the report does not depend on.
  */
-async function readAccessibilityTree(page: Page): Promise<AccessibilityTreeNode[]> {
+async function readBrowserAccessibility(page: Page): Promise<BrowserAccessibility> {
   const session = await page.context().newCDPSession(page);
   try {
     const { nodes } = (await session.send('Accessibility.getFullAXTree')) as { nodes: CdpAxNode[] };
-    // One document fetch maps every backend node to its tag, rather than a
-    // describeNode round trip per listed node.
+    // One document fetch maps every node to its tag and backend id, rather
+    // than a describeNode round trip per element.
     const { root } = (await session.send('DOM.getDocument', { depth: -1, pierce: true })) as { root: CdpDomNode };
     const tags = new Map<number, string>();
+    const backendIds = new Map<number, number>();
     const collect = (node: CdpDomNode) => {
       tags.set(node.backendNodeId, node.nodeName.toLowerCase());
+      backendIds.set(node.nodeId, node.backendNodeId);
       for (const child of [...(node.children ?? []), ...(node.shadowRoots ?? [])]) collect(child);
     };
     collect(root);
-    return flattenAccessibilityTree(nodes, (id) => {
+
+    // DOM.querySelectorAll returns the same document-order matches as the
+    // page's own querySelectorAll, so index i is the same element in both.
+    const { nodeIds } = (await session.send('DOM.querySelectorAll', {
+      nodeId: root.nodeId,
+      selector: INTERACTIVE_SELECTOR,
+    })) as { nodeIds: number[] };
+    const names = new Map<number, string>();
+    for (const node of nodes) {
+      if (node.backendDOMNodeId === undefined) continue;
+      const name = !node.ignored && typeof node.name?.value === 'string' ? node.name.value.replace(/\s+/g, ' ').trim() : '';
+      names.set(node.backendDOMNodeId, name);
+    }
+    const interactiveNames = nodeIds.slice(0, MAX_INTERACTIVE).map((nodeId) => {
+      const backend = backendIds.get(nodeId);
+      const tag = backend === undefined ? undefined : tags.get(backend);
+      const name = backend === undefined ? undefined : names.get(backend);
+      return tag === undefined || name === undefined ? undefined : { tag, name };
+    });
+
+    const tree = flattenAccessibilityTree(nodes, (id) => {
       const tag = tags.get(id);
       return tag && !tag.startsWith('#') ? tag : undefined;
     });
+    return { tree, interactiveNames };
   } finally {
     await session.detach().catch(() => undefined);
   }
+}
+
+/**
+ * The caveat for a durable handle on a control that has no accessible name.
+ *
+ * A test id or an id is a durable handle whether or not the control has an
+ * accessible name, so the verdict stands. Alone, though, "stable" beside a
+ * control a screen reader cannot name reads as "fine", while `scan` reports the
+ * same control as unlabelled. Only roles that need a name qualify: an unnamed
+ * list or group is not a defect.
+ */
+export function inaccessibleHandleNote(control: {
+  stability?: string;
+  accessibleName?: string;
+  role?: string | null;
+  tag: string;
+  type?: string;
+}): string | undefined {
+  if (control.stability !== 'stable' || control.accessibleName) return undefined;
+  if (!control.role || !ROLES_REQUIRING_A_NAME.has(control.role)) return undefined;
+  if ((control.type || '').toLowerCase() === 'hidden') return undefined;
+  const formField = ['input', 'select', 'textarea'].includes(control.tag);
+  return (
+    'Easy to locate, not accessible: this control has no accessible name, so assistive technology announces only its role and getByRole cannot address it by name.' +
+    (formField ? ' `scan` reports the same control as "Form control has no accessible label."' : '') +
+    ' Associate a visible label or an aria-label.'
+  );
 }
 
 export async function inspectPage(args: InspectPageArgs) {
@@ -316,7 +364,7 @@ export async function inspectPage(args: InspectPageArgs) {
   }, async (page) => {
     await waitForDomToSettle(page);
     const snapshot = await page.evaluate(
-      ({ includeForms }) => {
+      ({ includeForms, interactiveSelector, maxInteractive }) => {
         const text = (value: string | null | undefined) => (value || '').replace(/\s+/g, ' ').trim();
         // Where a control's name came from decides how much a locator built on
         // it is worth, so the source is carried rather than discarded. A name
@@ -327,6 +375,26 @@ export async function inspectPage(args: InspectPageArgs) {
         // control is named the same here as in `accessibilityTree`:
         // aria-labelledby outranks aria-label, and a button's content outranks
         // its title.
+        const nameFromContent = new Set([
+          'button',
+          'link',
+          'checkbox',
+          'radio',
+          'switch',
+          'menuitem',
+          'menuitemcheckbox',
+          'menuitemradio',
+          'tab',
+          'option',
+          'treeitem',
+          'heading',
+          'cell',
+          'gridcell',
+          'columnheader',
+          'rowheader',
+          'row',
+          'tooltip',
+        ]);
         const namedBy = (el: Element): { name: string; source: string } | null => {
           const labelledBy = el.getAttribute('aria-labelledby');
           if (labelledBy) {
@@ -348,8 +416,27 @@ export async function inspectPage(args: InspectPageArgs) {
           const labelText = text(labels.map((label) => label.textContent).join(' ')) || text(el.closest('label')?.textContent);
           if (labelText) return { name: labelText, source: 'label' };
 
-          const own = text(el.textContent);
-          if (own) return { name: own, source: 'text' };
+          // An <input> button is named by its value (or the browser's default
+          // label), an image button by its alt text.
+          const tag = el.tagName.toLowerCase();
+          const type = (el.getAttribute('type') || '').toLowerCase();
+          if (tag === 'input' && ['button', 'submit', 'reset'].includes(type)) {
+            const value = text(el.getAttribute('value')) || (type === 'submit' ? 'Submit' : type === 'reset' ? 'Reset' : '');
+            if (value) return { name: value, source: 'value' };
+          }
+          if (tag === 'input' && type === 'image') {
+            const alt = text(el.getAttribute('alt'));
+            if (alt) return { name: alt, source: 'alt' };
+          }
+
+          // Content names a control only where its role takes the name from
+          // content. A <select>'s text is its options and a dialog's text is
+          // its body; using either as the name built a getByRole that matched
+          // nothing.
+          if (nameFromContent.has(roleFor(el))) {
+            const own = text(el.textContent);
+            if (own) return { name: own, source: 'text' };
+          }
 
           const title = text(el.getAttribute('title'));
           if (title) return { name: title, source: 'title' };
@@ -458,14 +545,17 @@ export async function inspectPage(args: InspectPageArgs) {
           return tag;
         };
 
-        const interactive = Array.from(
-          document.querySelectorAll('button, a[href], input, textarea, select, [role], [data-testid], [data-test], [data-qa]')
-        )
-          .slice(0, 250)
+        const interactive = Array.from(document.querySelectorAll(interactiveSelector))
+          .slice(0, maxInteractive)
           .map((el) => {
             const role = roleFor(el);
             const named = namedBy(el);
             const name = named?.name ?? '';
+            // A name attribute is a handle, not an accessible name: a screen
+            // reader does not announce it and getByRole does not match it.
+            // This is only the fallback for when the browser's computed name is
+            // unavailable; inspectPage replaces it below.
+            const accessibleName = named && named.source !== 'name-attribute' ? name : '';
             const testIdAttribute = ['data-testid', 'data-test', 'data-qa'].find((attribute) =>
               el.getAttribute(attribute)
             );
@@ -495,7 +585,7 @@ export async function inspectPage(args: InspectPageArgs) {
             } else if (role && named && ['aria-label', 'aria-labelledby', 'label'].includes(named.source)) {
               stability = 'stable';
               recommendedLocator = `page.getByRole('${role}', { name: ${JSON.stringify(name)} })`;
-            } else if (role && named && ['text', 'title'].includes(named.source)) {
+            } else if (role && named && ['text', 'value', 'alt', 'title'].includes(named.source)) {
               stability = 'acceptable';
               recommendedLocator = `page.getByRole('${role}', { name: ${JSON.stringify(name)} })`;
             } else if (named && named.source === 'placeholder') {
@@ -522,6 +612,7 @@ export async function inspectPage(args: InspectPageArgs) {
               role,
               name,
               nameSource: named?.source,
+              accessibleName,
               stability,
               href: (el as HTMLAnchorElement).href || undefined,
               type: el.getAttribute('type') || undefined,
@@ -561,18 +652,28 @@ export async function inspectPage(args: InspectPageArgs) {
           forms,
         };
       },
-      { includeForms: args.includeForms ?? true }
+      { includeForms: args.includeForms ?? true, interactiveSelector: INTERACTIVE_SELECTOR, maxInteractive: MAX_INTERACTIVE }
     );
 
-    let accessibilityTree: AccessibilityTreeNode[] | undefined;
-    let accessibilityTreeWarning: string | undefined;
-    if (args.includeAccessibilityTree ?? true) {
-      try {
-        accessibilityTree = await readAccessibilityTree(page);
-      } catch (error) {
-        accessibilityTreeWarning = `The accessibility tree could not be read from the browser: ${error instanceof Error ? error.message : String(error)}`;
-      }
+    let browserAccessibility: BrowserAccessibility | undefined;
+    let accessibilityWarning: string | undefined;
+    try {
+      browserAccessibility = await readBrowserAccessibility(page);
+    } catch (error) {
+      accessibilityWarning = `The browser's accessibility tree could not be read, so accessible names are estimated from the DOM: ${error instanceof Error ? error.message : String(error)}`;
     }
+
+    const interactive = snapshot.interactive.map((item, index) => {
+      // Trust the browser's name only when the CDP match is the same element.
+      const computed = browserAccessibility?.interactiveNames[index];
+      const accessibleName = computed && computed.tag === item.tag ? computed.name : item.accessibleName;
+      return {
+        ...item,
+        accessibleName,
+        locatorNote: item.locatorNote ?? inaccessibleHandleNote({ ...item, accessibleName }),
+        href: item.href ? safeUrlForDisplay(item.href) : undefined,
+      };
+    });
 
     // Reported so an empty snapshot is self-describing. Without these, "no
     // interactive elements" is indistinguishable from "snapshotted too early",
@@ -585,17 +686,17 @@ export async function inspectPage(args: InspectPageArgs) {
       { headings: snapshot.headings.length, interactive: snapshot.interactive.length, forms: snapshot.forms.length },
       diagnostics.domNodeCount
     );
-    if (accessibilityTreeWarning) warnings.push(accessibilityTreeWarning);
+    if (accessibilityWarning) warnings.push(accessibilityWarning);
 
     return redactSensitiveData({
       ...snapshot,
       url: safeUrlForDisplay(snapshot.url),
       diagnostics,
       warnings: warnings.length > 0 ? warnings : undefined,
-      interactive: snapshot.interactive.map((item) => ({ ...item, href: item.href ? safeUrlForDisplay(item.href) : undefined })),
+      interactive,
       forms: snapshot.forms.map((form) => ({ ...form, action: safeUrlForDisplay(form.action) })),
-      accessibilityTree,
-      testability: summarizeTestability(snapshot.interactive),
+      accessibilityTree: args.includeAccessibilityTree ?? true ? browserAccessibility?.tree : undefined,
+      testability: summarizeTestability(interactive),
       selectorGuidance: [
         'recommendedLocator is already ranked: test id, then id, then a label-derived role name, then a text-derived one, then a placeholder. Prefer it over building your own.',
         'Read `stability` before using a locator. `fragile` means the name comes from a placeholder and breaks on a copy edit or a translation; `none` means the control has no handle and the locator is a positional fallback.',
